@@ -53,6 +53,8 @@ Then follow the docs in order:
 | 13 | [Backups & maintenance](docs/13-backups-and-maintenance.md) | What to back up, how often |
 | 14 | [Troubleshooting](docs/14-troubleshooting.md) | Common gotchas |
 
+See [`journal/`](journal/) for a running daily log of changes.
+
 ---
 
 ## Repo layout
@@ -63,6 +65,7 @@ Then follow the docs in order:
 ├── compose/      # Sanitized docker-compose files for every service
 ├── configs/      # Example app configs (.example files only)
 ├── scripts/      # Helper scripts (initial setup, drive mounting)
+├── journal/      # Daily logs (YYYY-MM-DD.md)
 ├── .gitignore
 └── README.md
 ```
