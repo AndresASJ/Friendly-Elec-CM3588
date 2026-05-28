@@ -1,0 +1,19 @@
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_HOST=CHANGE_ME_N8N_SUBDOMAIN        # e.g. n8n.yourdomain.com
+      - WEBHOOK_URL=CHANGE_ME_N8N_WEBHOOK_URL   # e.g. https://n8n.yourdomain.com/
+      - N8N_SECURE_COOKIE=false
+      - GENERIC_TIMEZONE=CHANGE_ME_TIMEZONE     # e.g. America/New_York
+      - DB_TYPE=sqlite
+      - DB_SQLITE_DATABASE=/home/node/.n8n/database.sqlite
+    volumes:
+      - /mnt/drive1/AppData/n8n:/home/node/.n8n
+    user: "1000:1000"
