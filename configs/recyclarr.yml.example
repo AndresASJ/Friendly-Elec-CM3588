@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://schemas.recyclarr.dev/v8/config-schema.json
+#
+# Copy this file to /root/recyclarr/recyclarr.yml and fill in:
+#   - base_url:  http://<container-ip>:8989 (Sonarr) or :7878 (Radarr)
+#   - api_key:   from Settings → General in each app
+#
+# Test once manually:
+#   docker exec recyclarr recyclarr sync
+#
+# Then it runs daily at 02:00 on a built-in cron.
+
+################################################################################
+## Sonarr — WEB-1080p, x265 preferred (smallest acceptable size at 1080p)
+################################################################################
+sonarr:
+  web-1080p:
+    base_url: http://<sonarr-container-ip>:8989
+    api_key: YOUR_SONARR_API_KEY
+
+    quality_definition:
+      type: series
+
+    quality_profiles:
+      - trash_id: 72dae194fc92bf828f32cde7744e51a1   # WEB-1080p
+        reset_unmatched_scores:
+          enabled: true
+
+    custom_format_groups:
+      add:
+        - trash_id: 158188097a58d7687dee647e04af0da3   # [Required] Golden Rule HD
+          select:
+            - 47435ece6b99a0b477caf360e79ba0bb         # x265 (HD) — smaller files
+
+################################################################################
+## Radarr — SQP-1 1080p (TRaSH "Size Quality Preference" streaming tier)
+################################################################################
+radarr:
+  sqp-1-1080p:
+    base_url: http://<radarr-container-ip>:7878
+    api_key: YOUR_RADARR_API_KEY
+
+    quality_definition:
+      type: sqp-streaming
+
+    quality_profiles:
+      - trash_id: 0896c29d74de619df168d23b98104b22   # [SQP] SQP-1 (1080p)
+        reset_unmatched_scores:
+          enabled: true
+
+    custom_format_groups:
+      add: []
+      skip: []

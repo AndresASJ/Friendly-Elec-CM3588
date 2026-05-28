@@ -1,0 +1,25 @@
+# 2FAuth — self-hosted 2FA code manager (TOTP, HOTP, Steam)
+#
+# Web-based alternative to Authy/Google Authenticator. Encrypts secrets
+# with an app-side key. Set APP_KEY to a random 32-byte value before
+# first launch:
+#   openssl rand -base64 32
+
+name: 2fauth
+services:
+  2fauth:
+    image: 2fauth/2fauth:latest
+    container_name: 2fauth
+    environment:
+      APP_NAME: "2FAuth"
+      APP_TIMEZONE: America/New_York
+      SITE_OWNER: you@yourdomain.com           # CHANGE_ME
+      APP_KEY: CHANGE_ME_BASE64_32_BYTE_KEY    # openssl rand -base64 32
+      APP_URL: https://2fa.yourdomain.com      # CHANGE_ME — your public URL (or LAN if local-only)
+      AUTHENTICATION_GUARD: web-guard
+      DB_DATABASE: /srv/database/database.sqlite
+    ports:
+      - "8000:8000/tcp"
+    volumes:
+      - /DATA/AppData/2fauth:/2fauth
+    restart: unless-stopped

@@ -1,0 +1,30 @@
+# Plex — secondary media server (kept around for PlexAmp users)
+#
+# Host networking is required for Plex's discovery features (DLNA, GDM)
+# and remote access without explicit port mapping.
+#
+# Get a claim token from https://plex.tv/claim (4-min expiry) and set
+# PLEX_CLAIM the first time you run the container.
+
+name: plex
+services:
+  plex:
+    image: lscr.io/linuxserver/plex:latest
+    container_name: plex
+    network_mode: host
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+      VERSION: docker
+      # PLEX_CLAIM: claim-xxxxxxxxxxxxxxxxxxxx   # first run only — get from plex.tv/claim
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+    volumes:
+      - /DATA/AppData/plex/config:/config
+      - /DATA/AppData/plex/transcode:/transcode
+      - /DATA/Media:/media
+      - /mnt/drive1/Downloads/Soulseek:/music
+    restart: unless-stopped

@@ -1,0 +1,74 @@
+# Seafile (Memcached edition) — self-hosted file sync
+#
+# Three containers on a shared bridge network:
+#   - big-bear-seafile        (Seafile server)
+#   - big-bear-seafile-db     (MariaDB)
+#   - big-bear-seafile-memcached
+#
+# Generate strong passwords with: openssl rand -base64 32
+
+name: big-bear-seafile
+services:
+  big-bear-seafile:
+    image: seafileltd/seafile-mc:11.0.13
+    container_name: big-bear-seafile
+    hostname: big-bear-seafile
+    depends_on:
+      big-bear-seafile-db:
+        condition: service_healthy
+      big-bear-seafile-memcached:
+        condition: service_started
+    environment:
+      DB_HOST: big-bear-seafile-db
+      DB_ROOT_PASSWD: CHANGE_ME_DB_ROOT_PASSWORD
+      SEAFILE_ADMIN_EMAIL: you@yourdomain.com           # CHANGE_ME
+      SEAFILE_ADMIN_PASSWORD: CHANGE_ME_ADMIN_PASSWORD
+      SEAFILE_SERVER_HOSTNAME: drive.yourdomain.com     # CHANGE_ME — your public hostname
+      SEAFILE_SERVER_LETSENCRYPT: "false"               # NPM/Cloudflare handles TLS
+      TIME_ZONE: America/New_York
+    networks:
+      - big_bear_seafile_network
+    ports:
+      - "7777:80/tcp"
+    volumes:
+      - /mnt/drive1:/mnt/drive1
+      - /mnt/drive2:/mnt/drive2
+      - /mnt/drive3:/mnt/drive3
+      - /mnt/drive4:/mnt/drive4
+      - /mnt/drive1/seafile/shared:/shared
+    restart: unless-stopped
+
+  big-bear-seafile-db:
+    image: mariadb:10.11
+    container_name: big-bear-seafile-db
+    hostname: big-bear-seafile-db
+    environment:
+      MARIADB_AUTO_UPGRADE: "1"
+      MYSQL_LOG_CONSOLE: "true"
+      MYSQL_ROOT_PASSWORD: CHANGE_ME_DB_ROOT_PASSWORD   # ← must match DB_ROOT_PASSWD
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      timeout: 5s
+      interval: 1m
+      retries: 3
+      start_period: 1m
+      start_interval: 10s
+    networks:
+      - big_bear_seafile_network
+    volumes:
+      - /mnt/drive1/seafile/mysql:/var/lib/mysql
+    restart: unless-stopped
+
+  big-bear-seafile-memcached:
+    image: memcached:1.6.39
+    container_name: big-bear-seafile-memcached
+    hostname: big-bear-seafile-memcached
+    entrypoint: ["memcached", "-m", "256"]
+    networks:
+      - big_bear_seafile_network
+    restart: unless-stopped
+
+networks:
+  big_bear_seafile_network:
+    name: big-bear-seafile_big_bear_seafile_network
+    driver: bridge

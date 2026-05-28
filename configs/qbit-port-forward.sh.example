@@ -1,0 +1,37 @@
+#!/bin/sh
+# qBittorrent port-forward updater for Gluetun + ProtonVPN
+#
+# Save the real file as:
+#   /mnt/drive1/AppData/gluetun-qbit/qbit-port-forward.sh
+#   chmod +x qbit-port-forward.sh
+#
+# Gluetun calls this script automatically when ProtonVPN assigns a
+# forwarded port. It updates qBittorrent's listening port via the Web API
+# so peers can reach you on the right port.
+#
+# Replace QBIT_USER / QBIT_PASS below with your real qBit credentials.
+
+ACTION=$1
+PORT=$2
+IFACE=$3
+
+QBIT_API="http://localhost:8090/api/v2"
+QBIT_USER="admin"
+QBIT_PASS="CHANGE_ME_QBIT_PASSWORD"
+
+if [ "$ACTION" = "up" ]; then
+  COOKIE=$(curl -s --cookie-jar - "$QBIT_API/auth/login" \
+    --data "username=$QBIT_USER&password=$QBIT_PASS" \
+    | grep SID | awk '{print $7}')
+
+  if [ -z "$COOKIE" ]; then
+    echo "[port-forward] login failed — check QBIT_USER / QBIT_PASS"
+    exit 1
+  fi
+
+  curl -s --cookie "SID=$COOKIE" \
+    --data "json={\"listen_port\": $PORT}" \
+    "$QBIT_API/app/setPreferences"
+
+  echo "[port-forward] qBittorrent listening on $PORT (iface $IFACE)"
+fi

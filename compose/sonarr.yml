@@ -1,0 +1,23 @@
+# Sonarr — TV show manager
+#
+# Mounts all media drives at their exact host paths so hardlinks with
+# qBittorrent work (no double storage on import).
+
+name: sonarr
+services:
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+    ports:
+      - "8989:8989/tcp"
+    volumes:
+      - /mnt/drive1/appdata/sonarr:/config
+      - /mnt/drive1:/mnt/drive1
+      - /mnt/drive2:/mnt/drive2
+      - /mnt/drive3:/mnt/drive3
+      - /mnt/drive4:/mnt/drive4
+    restart: unless-stopped

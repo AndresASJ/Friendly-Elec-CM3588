@@ -1,0 +1,55 @@
+# Ghost blog + MySQL 8.0
+#
+# Generate strong passwords:
+#   openssl rand -base64 24
+#
+# Replace CHANGE_ME_* placeholders below. Important: the `url` env var
+# bakes into Ghost's generated links — set it to the FINAL public URL
+# before publishing any posts.
+
+name: ghost
+services:
+  ghost:
+    image: ghost:5-alpine
+    container_name: ghost
+    depends_on:
+      ghost-db:
+        condition: service_healthy
+    environment:
+      database__client: mysql
+      database__connection__host: ghost-db
+      database__connection__database: ghost
+      database__connection__user: ghost
+      database__connection__password: CHANGE_ME_GHOST_DB_PASSWORD
+      url: https://blog.yourdomain.com    # CHANGE_ME — your public URL
+    networks:
+      - ghost-network
+    ports:
+      - "2368:2368/tcp"
+    volumes:
+      - /DATA/AppData/ghost/config:/var/lib/ghost/content
+    restart: unless-stopped
+
+  ghost-db:
+    image: mysql:8.0
+    container_name: ghost-db
+    environment:
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: CHANGE_ME_GHOST_DB_PASSWORD    # ← must match above
+      MYSQL_ROOT_PASSWORD: CHANGE_ME_GHOST_ROOT_PASSWORD
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "ghost", "-pCHANGE_ME_GHOST_DB_PASSWORD"]
+      timeout: 5s
+      interval: 10s
+      retries: 10
+    networks:
+      - ghost-network
+    volumes:
+      - /DATA/AppData/ghost/mysql:/var/lib/mysql
+    restart: unless-stopped
+
+networks:
+  ghost-network:
+    name: ghost_ghost-network
+    driver: bridge

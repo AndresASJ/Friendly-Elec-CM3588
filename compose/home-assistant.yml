@@ -1,0 +1,18 @@
+# Home Assistant (Container edition)
+#
+# Host networking is required for discovery (HomeKit, AirPlay, mDNS,
+# Shelly, Sonos, etc.). dbus mount enables Bluetooth + system integrations.
+
+name: home-assistant
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    network_mode: host
+    privileged: true
+    environment:
+      TZ: America/New_York
+    volumes:
+      - /mnt/drive1/homeassistant/config:/config
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped

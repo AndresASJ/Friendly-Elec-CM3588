@@ -1,0 +1,15 @@
+# Jellyseerr — request UI for Jellyfin/Plex users
+
+name: jellyseerr
+services:
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    environment:
+      LOG_LEVEL: debug
+      TZ: America/New_York
+    ports:
+      - "5055:5055/tcp"
+    volumes:
+      - /mnt/drive1/appdata/jellyseerr:/app/config
+    restart: unless-stopped

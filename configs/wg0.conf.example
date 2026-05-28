@@ -1,0 +1,37 @@
+# Example ProtonVPN WireGuard config
+#
+# Get the real file from:
+#   https://account.proton.me/u/0/vpn/WireGuard
+#
+# When generating the config, ENABLE:
+#   - NAT-PMP (Port Forwarding)  ← required for qBittorrent fast downloads
+#   - Moderate NAT
+#
+# Save the real file as:
+#   /mnt/drive1/AppData/gluetun-qbit/wg0.conf       (for qBittorrent)
+#   /mnt/drive1/AppData/gluetun-slskd/wg0.conf      (for slskd)
+#
+# THIS FILE MUST NEVER BE COMMITTED. .gitignore already excludes wg0.conf.
+
+[Interface]
+# Your client's WireGuard private key (32 bytes, base64)
+PrivateKey = REPLACE_WITH_YOUR_WIREGUARD_PRIVATE_KEY=
+
+# Tunnel IP assigned by ProtonVPN
+Address = 10.2.0.2/32
+
+# ProtonVPN's tunnel DNS resolver
+DNS = 10.2.0.1
+
+[Peer]
+# ProtonVPN server's public key
+PublicKey = REPLACE_WITH_PROTONVPN_PEER_PUBLIC_KEY=
+
+# Route all traffic through the tunnel
+AllowedIPs = 0.0.0.0/0
+
+# Endpoint: ProtonVPN server IP:port (varies by server)
+Endpoint = 1.2.3.4:51820
+
+# Keepalive (optional but recommended behind NAT)
+PersistentKeepalive = 25

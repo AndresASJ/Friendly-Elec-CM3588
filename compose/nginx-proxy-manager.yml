@@ -1,0 +1,20 @@
+# Nginx Proxy Manager — reverse proxy + Let's Encrypt
+#
+# Default login on first start:
+#   email:    admin@example.com
+#   password: changeme
+# Change both immediately via the admin UI at port 81.
+
+name: nginxproxymanager
+services:
+  nginxproxymanager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginxproxymanager
+    ports:
+      - "80:80/tcp"      # HTTP (public)
+      - "443:443/tcp"    # HTTPS (public)
+      - "81:81/tcp"      # Admin UI — keep LAN-only via firewall
+    volumes:
+      - /DATA/AppData/nginxproxymanager/data:/data
+      - /DATA/AppData/nginxproxymanager/etc/letsencrypt:/etc/letsencrypt
+    restart: unless-stopped

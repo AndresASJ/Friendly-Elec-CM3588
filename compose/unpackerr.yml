@@ -1,0 +1,20 @@
+# Unpackerr — auto-extract RAR archives from completed downloads
+#
+# Watches the torrent completion folder. When Sonarr/Radarr can't import
+# a release because it's still inside a RAR, Unpackerr extracts it and
+# Sonarr/Radarr pick it up on the next scan.
+#
+# Config file goes at: /mnt/drive1/AppData/unpackerr/unpackerr.conf
+# (See https://github.com/Unpackerr/unpackerr for the default config)
+
+name: unpackerr
+services:
+  unpackerr:
+    image: golift/unpackerr:latest
+    container_name: unpackerr
+    user: "1000:1000"
+    environment:
+      TZ: America/New_York
+    volumes:
+      - /mnt/drive1/torrents/complete:/mnt/drive1/torrents/complete
+    restart: unless-stopped

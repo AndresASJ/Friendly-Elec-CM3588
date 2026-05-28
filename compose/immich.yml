@@ -1,0 +1,104 @@
+# Immich — self-hosted photo backup
+#
+# Four-container stack on a shared "immich" network:
+#   - immich-server (API + Web UI)
+#   - immich-machine-learning (face / object / CLIP search)
+#   - immich-postgres (with pgvecto.rs vector extension)
+#   - immich-redis (cache + queue)
+#
+# Hardware acceleration is configured for Rockchip RK3588 (Mali + MPP).
+
+name: immich
+services:
+  database:
+    image: docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0
+    container_name: immich-postgres
+    hostname: immich-postgres
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=vectors.so
+      - -c
+      - search_path="$$user", public, vectors
+      - -c
+      - logging_collector=on
+      - -c
+      - max_wal_size=2GB
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - wal_compression=on
+    environment:
+      POSTGRES_DB: immich
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: CHANGE_ME_POSTGRES_PASSWORD
+      POSTGRES_INITDB_ARGS: --data-checksums
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname=immich --username=postgres || exit 1"]
+      interval: 5m
+      start_period: 5m
+      start_interval: 30s
+    networks:
+      - immich
+    volumes:
+      - /DATA/AppData/immich/pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: docker.io/redis:6.2-alpine
+    container_name: immich-redis
+    hostname: immich-redis
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping || exit 1"]
+    networks:
+      - immich
+    volumes:
+      - /DATA/AppData/immich/redis:/data
+    restart: unless-stopped
+
+  immich-machine-learning:
+    image: altran1502/immich-machine-learning:v2.5.3
+    container_name: immich-machine-learning
+    hostname: immich-machine-learning
+    environment:
+      DB_DATABASE_NAME: immich
+      DB_USERNAME: postgres
+      DB_PASSWORD: CHANGE_ME_POSTGRES_PASSWORD   # ← must match database container
+    networks:
+      - immich
+    volumes:
+      - /DATA/AppData/immich/model-cache:/cache
+    restart: unless-stopped
+
+  immich-server:
+    image: altran1502/immich-server:v2.5.3
+    container_name: immich-server
+    hostname: immich-server
+    depends_on:
+      - database
+      - redis
+    privileged: true
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/mpp_service:/dev/mpp_service
+      - /dev/dma_heap:/dev/dma_heap
+      - /dev/rga:/dev/rga
+    group_add:
+      - video
+    environment:
+      DB_DATABASE_NAME: immich
+      DB_USERNAME: postgres
+      DB_PASSWORD: CHANGE_ME_POSTGRES_PASSWORD   # ← must match
+      IMMICH_CONFIG_FILE: /usr/src/app/upload/immich.json
+    networks:
+      - immich
+    ports:
+      - "2283:2283/tcp"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /mnt/drive1/Photos:/usr/src/app/upload
+    restart: unless-stopped
+
+networks:
+  immich:
+    name: immich

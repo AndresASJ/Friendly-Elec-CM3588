@@ -1,0 +1,18 @@
+# Recyclarr — TRaSH Guides automation for Sonarr/Radarr
+#
+# Runs on a cron schedule inside the container. Copies the example config
+# at configs/recyclarr.yml.example to /root/recyclarr/recyclarr.yml and
+# fill in your API keys before deploying.
+
+name: recyclarr
+services:
+  recyclarr:
+    image: ghcr.io/recyclarr/recyclarr:latest
+    container_name: recyclarr
+    user: "1000:1000"
+    environment:
+      TZ: America/New_York
+      # CRON_SCHEDULE: "0 2 * * *"   # default — daily 02:00 host time
+    volumes:
+      - /root/recyclarr:/config
+    restart: unless-stopped

@@ -1,0 +1,22 @@
+# Music Assistant — aggregates local + streaming music
+#
+# Pairs with Home Assistant for whole-home audio control.
+
+name: music-assistant
+services:
+  music-assistant:
+    image: ghcr.io/music-assistant/server:latest
+    container_name: music-assistant
+    network_mode: host
+    privileged: true
+    cap_add:
+      - SYS_ADMIN
+      - DAC_READ_SEARCH
+    security_opt:
+      - apparmor:unconfined
+    environment:
+      TZ: America/New_York
+    volumes:
+      - /mnt/drive1/music-assistant/data:/data
+      - /mnt/drive1/Music:/media:ro
+    restart: unless-stopped

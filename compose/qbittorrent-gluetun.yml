@@ -1,0 +1,51 @@
+# qBittorrent + Gluetun (ProtonVPN WireGuard)
+#
+# qBittorrent is forced through Gluetun via network_mode: service:gluetun.
+# If Gluetun stops, qBit has NO network. Hard kill-switch.
+#
+# Before deploying:
+#   1. Get a WireGuard config from ProtonVPN (with port forwarding enabled)
+#   2. Save it as /mnt/drive1/AppData/gluetun-qbit/wg0.conf
+#   3. Place the port-forward update script at /mnt/drive1/AppData/gluetun-qbit/qbit-port-forward.sh
+#   4. Adjust FIREWALL_OUTBOUND_SUBNETS to your LAN subnet
+
+name: qbittorrent
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun-qbit
+    cap_add:
+      - NET_ADMIN
+    environment:
+      TZ: America/New_York
+      VPN_SERVICE_PROVIDER: custom
+      VPN_TYPE: wireguard
+      VPN_PORT_FORWARDING: "on"
+      VPN_PORT_FORWARDING_PROVIDER: protonvpn
+      VPN_PORT_FORWARDING_UP_COMMAND: '/bin/sh -c "/gluetun/qbit-port-forward.sh up {{PORT}} {{VPN_INTERFACE}}"'
+      VPN_PORT_FORWARDING_DOWN_COMMAND: '/bin/sh -c "/gluetun/qbit-port-forward.sh down 0 lo"'
+      FIREWALL_INPUT_PORTS: "8090"
+      FIREWALL_OUTBOUND_SUBNETS: "192.168.50.0/24"   # CHANGE_ME — your LAN subnet
+    ports:
+      - "8090:8090/tcp"   # qBittorrent Web UI (published by gluetun, not qbit)
+    volumes:
+      - /mnt/drive1/AppData/gluetun-qbit:/gluetun
+    restart: unless-stopped
+
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: qbittorrent
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    network_mode: service:gluetun   # critical — share Gluetun's network namespace
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+      WEBUI_PORT: "8090"
+    volumes:
+      - /mnt/drive1/AppData/qbittorrent:/config
+      - /mnt/drive1/torrents:/mnt/drive1/torrents
+      - /mnt/drive1:/mnt/drive1    # so hardlinks work with Sonarr/Radarr
+    restart: unless-stopped

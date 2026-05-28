@@ -1,0 +1,26 @@
+# kord-lastfm — Last.fm scrobble bridge
+#
+# Lightweight Node.js script that accepts webhooks from Plex/Jellyfin
+# and forwards scrobbles to Last.fm.
+#
+# server.js lives at /DATA/AppData/kord-lastfm/server.js — see the
+# project's README for the script template. Configure your Last.fm
+# API key and session token there.
+
+name: kord-lastfm
+services:
+  kord-lastfm:
+    image: node:18-alpine
+    container_name: kord-lastfm
+    working_dir: /app
+    command: ["node", "/app/server.js"]
+    environment:
+      PORT: "8787"
+      LASTFM_API_KEY: CHANGE_ME_LASTFM_API_KEY
+      LASTFM_SECRET: CHANGE_ME_LASTFM_SECRET
+      LASTFM_SESSION_KEY: CHANGE_ME_LASTFM_SESSION
+    ports:
+      - "8787:8787/tcp"
+    volumes:
+      - /DATA/AppData/kord-lastfm/server.js:/app/server.js:ro
+    restart: unless-stopped

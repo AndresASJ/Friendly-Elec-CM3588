@@ -1,0 +1,43 @@
+# ──────────────────────────────────────────────────────────────────────
+# Secrets — NEVER commit these
+# ──────────────────────────────────────────────────────────────────────
+*.env
+.env
+.env.*
+!.env.example
+!*.env.example
+
+# Real configs with API keys / passwords
+configs/recyclarr.yml
+configs/wg0.conf
+recyclarr/recyclarr.yml
+**/wg0.conf
+**/wireguard.conf
+
+# Cloudflare tunnel credentials
+*.json
+!package.json
+!package-lock.json
+!*.example.json
+cert.pem
+
+# Database dumps
+*.sql
+*.dump
+
+# ──────────────────────────────────────────────────────────────────────
+# Logs and runtime
+# ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+*.log.*
+
+# ──────────────────────────────────────────────────────────────────────
+# OS / editor cruft
+# ──────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~

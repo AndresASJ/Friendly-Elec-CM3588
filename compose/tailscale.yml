@@ -1,0 +1,27 @@
+# Tailscale — mesh VPN for personal devices
+#
+# On first launch, watch the logs for the auth URL:
+#   docker logs tailscale
+# Visit the URL, approve the device. Optionally enable subnet routing
+# and MagicDNS from the Tailscale admin console.
+
+name: tailscale
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: homelab          # CHANGE_ME — your preferred Tailscale hostname
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "false"
+      TS_EXTRA_ARGS: "--advertise-routes=192.168.50.0/24"   # CHANGE_ME — your LAN subnet
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      - "5252:8088/tcp"   # admin UI
+    volumes:
+      - /DATA/AppData/tailscale:/var/lib/tailscale
+    restart: unless-stopped

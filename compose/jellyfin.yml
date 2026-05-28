@@ -1,0 +1,31 @@
+# Jellyfin — primary media server
+#
+# Hardware transcoding via Rockchip Mali GPU (RK3588). See
+# docs/05-media-stack.md for transcoding setup inside the UI.
+
+name: jellyfin
+services:
+  jellyfin:
+    image: linuxserver/jellyfin:latest
+    container_name: jellyfin
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+      JELLYFIN_PublishedServerUrl: http://192.168.50.178:8096   # CHANGE_ME — your LAN IP
+    devices:
+      - /dev/dri:/dev/dri              # Mali GPU
+      - /dev/mpp_service:/dev/mpp_service   # Rockchip MPP encoder
+    group_add:
+      - video
+    ports:
+      - "8096:8096/tcp"
+      - "8920:8920/tcp"
+      - "7359:7359/udp"
+      - "1900:1900/udp"
+    volumes:
+      - /DATA/AppData/jellyfin/config:/config
+      - /DATA/Media:/Media
+      - /mnt:/mnt
+      - /opt/vc/lib:/opt/vc/lib
+    restart: unless-stopped

@@ -1,0 +1,18 @@
+# PlexAmp — headless music player
+#
+# Needs a one-time claim token from https://plex.tv/claim (4-minute expiry).
+# Mount the claim token via the web UI after first launch.
+
+name: plexamp
+services:
+  plexamp:
+    image: ghcr.io/anatosun/plexamp:latest
+    container_name: plexamp
+    environment:
+      TZ: America/New_York
+    volumes:
+      - /DATA/AppData/plexamp/config:/config
+    devices:
+      - /dev/snd:/dev/snd
+    network_mode: host
+    restart: unless-stopped

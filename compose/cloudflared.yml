@@ -1,0 +1,20 @@
+# Cloudflared — Cloudflare Tunnel client (with web UI)
+#
+# Exposes selected services to the internet without opening router ports.
+#
+# On first launch, visit the cloudflared web UI and paste your tunnel
+# token from Cloudflare Zero Trust → Networks → Tunnels.
+
+name: cloudflared
+services:
+  cloudflared:
+    image: wisdomsky/cloudflared-web:latest
+    container_name: cloudflared
+    environment:
+      TZ: America/New_York
+    ports:
+      - "14333:14333/tcp"   # web UI (LAN-only)
+    volumes:
+      - /DATA/AppData/casaos-cloudflared/config:/config
+      - /DATA/AppData/casaos-cloudflared/cloudflared:/root/.cloudflared
+    restart: unless-stopped

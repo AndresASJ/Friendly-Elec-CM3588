@@ -1,0 +1,22 @@
+# Radarr — movie manager
+#
+# Mounts all drives where movie files live so hardlinks with qBittorrent
+# work across drives.
+
+name: radarr
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+    ports:
+      - "7878:7878/tcp"
+    volumes:
+      - /mnt/drive1/appdata/radarr:/config
+      - /mnt/drive1:/mnt/drive1
+      - /mnt/drive3:/mnt/drive3
+      - /mnt/drive4:/mnt/drive4
+    restart: unless-stopped

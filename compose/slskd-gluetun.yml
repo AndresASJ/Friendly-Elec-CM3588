@@ -1,0 +1,41 @@
+# slskd (Soulseek) + Gluetun (ProtonVPN WireGuard)
+#
+# Same kill-switch pattern as qBittorrent. slskd peer port 50300 is fixed
+# (Soulseek doesn't use NAT-PMP), so port forwarding is OFF — peers reach
+# you via outbound connections.
+#
+# Before deploying:
+#   1. Save your ProtonVPN WireGuard config at
+#      /mnt/drive1/AppData/gluetun-slskd/wg0.conf
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun:latest
+    container_name: gluetun-slskd
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - TZ=America/New_York
+      - VPN_SERVICE_PROVIDER=custom
+      - VPN_TYPE=wireguard
+    ports:
+      - "5032:5032/tcp"     # slskd web UI (LAN-accessible via gluetun)
+      - "50300:50300/tcp"   # Soulseek peer port
+    volumes:
+      - /mnt/drive1/AppData/gluetun-slskd:/gluetun
+      - /mnt/drive1/AppData/gluetun-slskd/wg0.conf:/gluetun/wireguard/wg0.conf:ro
+    restart: unless-stopped
+
+  slskd:
+    image: slskd/slskd:latest
+    container_name: slskd
+    depends_on:
+      - gluetun
+    network_mode: service:gluetun
+    environment:
+      - TZ=America/New_York
+      - SLSKD_REMOTE_CONFIGURATION=true
+    volumes:
+      - /mnt/drive1/AppData/slskd:/app
+      - /mnt/drive1/Downloads/Soulseek:/downloads
+    restart: unless-stopped

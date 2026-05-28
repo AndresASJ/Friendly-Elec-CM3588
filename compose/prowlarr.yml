@@ -1,0 +1,19 @@
+# Prowlarr — indexer aggregator
+#
+# Centralizes torrent/Usenet indexer management. Push indexer changes
+# out to Sonarr/Radarr automatically via "Apps" in Prowlarr's settings.
+
+name: prowlarr
+services:
+  prowlarr:
+    image: lscr.io/linuxserver/prowlarr:latest
+    container_name: prowlarr
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: America/New_York
+    ports:
+      - "9696:9696/tcp"
+    volumes:
+      - /mnt/drive1/appdata/prowlarr:/config
+    restart: unless-stopped

@@ -1,0 +1,24 @@
+# AdGuard Home — network-wide DNS + ad blocking
+#
+# First-run wizard listens on :3000; pick port 53 for DNS and another
+# port (3000 here) for the admin UI. Then point your router DHCP at
+# the homelab's LAN IP as primary DNS.
+
+name: adguard-home
+services:
+  adguard-home:
+    image: adguard/adguardhome:latest
+    container_name: adguard-home
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"            # DHCP (only if AdGuard is your DHCP server)
+      - "68:68/udp"
+      - "3000:3000/tcp"        # admin UI (LAN-only via firewall)
+      - "784:784/udp"          # DNS-over-QUIC
+      - "853:853/tcp"          # DNS-over-TLS
+      - "5443:5443/tcp"        # DNSCrypt
+    volumes:
+      - /DATA/AppData/adguard-home/opt/adguardhome/work:/opt/adguardhome/work
+      - /DATA/AppData/adguard-home/opt/adguardhome/conf:/opt/adguardhome/conf
+    restart: unless-stopped
