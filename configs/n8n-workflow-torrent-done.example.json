@@ -1,0 +1,85 @@
+{
+  "name": "Torrent Done → Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "torrent-done",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wh",
+      "name": "qBittorrent Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ],
+      "webhookId": "torrent-done"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nconst b = $json.body || $json;\nconst name = b.name || 'Unknown';\nconst cat  = (b.category && b.category.trim()) ? b.category : 'uncategorized';\nconst files = b.files || '?';\nconst bytes = parseInt(b.size || '0', 10);\nconst gb = bytes ? (bytes/1073741824).toFixed(2) + ' GB' : 'size n/a';\nconst warn = (cat === 'uncategorized') ? '\\n⚠️ no category — Sonarr/Radarr will not import this.' : '';\nconst message = `✅ Torrent finished\\n📦 ${name}\\n📁 ${cat} • ${gb} • ${files} files${warn}`;\nreturn [{ json: { message } }];\n"
+      },
+      "id": "fmt",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "CHANGE_ME_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "tg",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CHANGE_ME",
+          "name": "Telegram bot"
+        }
+      },
+      "webhookId": "cd42457d-154b-4378-84fa-05c8cac5e6b8"
+    }
+  ],
+  "connections": {
+    "qBittorrent Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

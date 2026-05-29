@@ -1,0 +1,121 @@
+{
+  "name": "Soulseek Done → Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "sch",
+      "name": "Every 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        360,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.50.178:5032/api/v0/transfers/downloads",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "http",
+      "name": "slskd: downloads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHANGE_ME",
+          "name": "slskd API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nconst items = $input.all();\nlet users = [];\nfor (const it of items) {\n  const j = it.json;\n  if (Array.isArray(j)) users.push(...j);\n  else if (j && Array.isArray(j.data)) users.push(...j.data);\n  else if (j && j.directories) users.push(j);\n}\nconst sd = $getWorkflowStaticData('global');\nsd.seen = sd.seen || {};\nconst firstRun = !sd.initialized;\nconst newByAlbum = {};\nfor (const u of users) {\n  for (const dir of (u.directories || [])) {\n    for (const f of (dir.files || [])) {\n      if (!String(f.state || '').includes('Succeeded')) continue;\n      if (sd.seen[f.id]) continue;\n      sd.seen[f.id] = true;\n      if (firstRun) continue;\n      const album = String(dir.directory || '').split('\\\\').filter(Boolean).pop() || 'download';\n      newByAlbum[album] = (newByAlbum[album] || 0) + 1;\n    }\n  }\n}\nsd.initialized = true;\nconst entries = Object.entries(newByAlbum);\nif (!entries.length) return [];\nconst lines = entries.map(([a, n]) => `🎵 ${a} — ${n} track${n > 1 ? 's' : ''}`);\nreturn [{ json: { message: 'Soulseek downloads finished:\\n' + lines.join('\\n') } }];\n"
+      },
+      "id": "code",
+      "name": "New Completed?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        840,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "CHANGE_ME_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "tg",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1080,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CHANGE_ME",
+          "name": "Telegram bot"
+        }
+      },
+      "webhookId": "2344ecdf-3c19-41f5-9b3c-b640ebd8ad0a"
+    }
+  ],
+  "connections": {
+    "Every 5 min": {
+      "main": [
+        [
+          {
+            "node": "slskd: downloads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "slskd: downloads": {
+      "main": [
+        [
+          {
+            "node": "New Completed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "New Completed?": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "name": "Disk Guard → Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "disk-report",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "wh",
+      "name": "Disk Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ],
+      "webhookId": "disk-report"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nconst drives = ($json.body && $json.body.drives) || $json.drives || [];\nconst THRESH = 85;\nconst sd = $getWorkflowStaticData('global');\nsd.state = sd.state || {};\nconst msgs = [];\nfor (const d of drives) {\n  const was = !!sd.state[d.mount];\n  const now = Number(d.usePct) >= THRESH;\n  if (now && !was) msgs.push(`⚠️ ${d.mount} is ${d.usePct}% full — ${d.availGb} GB free. Writes may start failing.`);\n  if (!now && was) msgs.push(`✅ ${d.mount} recovered: ${d.usePct}% used (${d.availGb} GB free).`);\n  sd.state[d.mount] = now;\n}\nreturn msgs.length ? [{ json: { message: msgs.join('\\n') } }] : [];\n"
+      },
+      "id": "ev",
+      "name": "Evaluate Drives",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "CHANGE_ME_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "tg",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CHANGE_ME",
+          "name": "Telegram bot"
+        }
+      },
+      "webhookId": "6c42cb8a-194a-4999-90b6-b829758e6b46"
+    }
+  ],
+  "connections": {
+    "Disk Report Webhook": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Drives",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Drives": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
