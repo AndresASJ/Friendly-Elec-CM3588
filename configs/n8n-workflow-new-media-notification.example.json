@@ -1,0 +1,85 @@
+{
+  "name": "New Media → Notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "media-added",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook1",
+      "name": "Sonarr/Radarr Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        380,
+        300
+      ],
+      "webhookId": "media-added"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\n// Handles both Sonarr and Radarr \"On Import/Download\" webhook payloads\nconst b = $json.body || $json;\nlet title = 'New media added';\nlet message = 'New media added to the library.';\n\nif (b.movie) {                              // Radarr\n  const y = b.movie.year ? ` (${b.movie.year})` : '';\n  title = '🎬 New movie added';\n  message = `🎬 ${b.movie.title}${y} is now available.`;\n} else if (b.series) {                       // Sonarr\n  const eps = (b.episodes || [])\n    .map(e => `S${String(e.seasonNumber).padStart(2,'0')}E${String(e.episodeNumber).padStart(2,'0')} – ${e.title || ''}`)\n    .join(', ');\n  title = '📺 New episode added';\n  message = `📺 ${b.series.title}${eps ? ' — ' + eps : ''} is now available.`;\n}\n\nreturn [{ json: { title, message, eventType: b.eventType || null, raw: b } }];\n"
+      },
+      "id": "code1",
+      "name": "Format Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        640,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "CHANGE_ME_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "telegram1",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "CHANGE_ME",
+          "name": "Telegram bot"
+        }
+      },
+      "webhookId": "e524d23f-518d-4abb-a526-789ea4399c30"
+    }
+  ],
+  "connections": {
+    "Sonarr/Radarr Webhook": {
+      "main": [
+        [
+          {
+            "node": "Format Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Message": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
