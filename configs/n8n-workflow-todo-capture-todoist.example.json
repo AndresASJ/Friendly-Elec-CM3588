@@ -1,0 +1,279 @@
+{
+  "name": "Todo Capture → Todoist (via Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "sch",
+      "name": "Every 1 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const sd=$getWorkflowStaticData('global');return [{json:{offset: sd.tgOffset||0}}];"
+      },
+      "id": "ro",
+      "name": "Read offset",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://api.telegram.org/botCHANGE_ME_TELEGRAM_BOT_TOKEN/getUpdates?offset={{ $json.offset }}&limit=1&allowed_updates=[\"message\"]",
+        "options": {}
+      },
+      "id": "gu",
+      "name": "Telegram getUpdates",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        600,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $json.result || $json.body?.result || [];\nconst sd = $getWorkflowStaticData('global');\nif (!data.length) return [];\nconst u = data[0];\nconst m = u.message;\nif (!m || !m.text) { sd.tgOffset = u.update_id + 1; return []; }\nconst SYS = \"You convert a rough note into a Todoist task. Respond ONLY with minified JSON: {\\\"content\\\":\\\"\\\",\\\"description\\\":\\\"\\\",\\\"due_string\\\":\\\"\\\",\\\"label\\\":\\\"\\\",\\\"priority\\\":1}. content=short imperative title. description=extra detail or empty string. due_string=natural-language date/time ONLY if the note implies one (e.g. 'thursday','tomorrow 9am','today'); else empty; never invent. label=ONE short category word if obvious (Blog, Church, Coding, Routines, Kord, Home, Errands), else empty string. priority=integer 1 (normal) to 4 (urgent); >1 only if urgency is clearly signaled.\";\nconst geminiBody = JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents:[{role:'user',parts:[{text:m.text}]}],generationConfig:{maxOutputTokens:400,temperature:0.2}});\nreturn [{ json: { text: m.text, chatId: m.chat.id, updateId: u.update_id, geminiBody } }];\n"
+      },
+      "id": "gm",
+      "name": "Get message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        800,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "ai",
+      "name": "Gemini: clean up",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHANGE_ME",
+          "name": "Gemini API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nlet t='';\ntry { t = $json.candidates?.[0]?.content?.parts?.[0]?.text || $json.body?.candidates?.[0]?.content?.parts?.[0]?.text || ''; } catch(e){}\nlet o={};\ntry { const m=t.match(/\\{[\\s\\S]*\\}/); if(m) o=JSON.parse(m[0]); } catch(e){}\n// Always capture into Inbox (no project_id -> never 404). Category becomes a label.\nconst task = { content: (o.content||'Untitled task').slice(0,400) };\nif (o.description) task.description = String(o.description);\nif (o.due_string) task.due_string = String(o.due_string);\nlet pr = parseInt(o.priority); if (pr>=1 && pr<=4) task.priority = pr;\nlet labelName = String(o.label||'').trim().replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');\nif (labelName) task.labels = [labelName];\nconst src = $('Get message').item.json;\nconst confirm = '✅ Added: ' + task.content\n  + (task.due_string ? ' 📅 ' + task.due_string : '')\n  + (labelName ? ' 🏷️ ' + labelName : '')\n  + (task.priority && task.priority>1 ? ' ❗p'+(5-task.priority) : '');\nreturn [{ json: { todoistBody: JSON.stringify(task), chatId: src.chatId, updateId: src.updateId, confirm } }];\n"
+      },
+      "id": "prs",
+      "name": "Parse task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.todoist.com/api/v1/tasks",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.todoistBody }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "td",
+      "name": "Create Todoist task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1400,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHANGE_ME",
+          "name": "Todoist API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Parse task').item.json.chatId }}",
+        "text": "={{ $('Parse task').item.json.confirm }}",
+        "additionalFields": {}
+      },
+      "id": "cf",
+      "name": "Confirm in Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1600,
+        300
+      ],
+      "continueOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "CHANGE_ME",
+          "name": "Telegram - ASJ Noti bot"
+        }
+      },
+      "webhookId": "018c4818-1fb8-4026-8332-f5f6ac9b0c3c"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const sd=$getWorkflowStaticData('global');\nconst uid=$('Get message').item.json.updateId;\nif (uid!=null) sd.tgOffset = uid + 1;\nreturn $input.all();\n"
+      },
+      "id": "adv",
+      "name": "Mark read",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1800,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Every 1 min": {
+      "main": [
+        [
+          {
+            "node": "Read offset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read offset": {
+      "main": [
+        [
+          {
+            "node": "Telegram getUpdates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram getUpdates": {
+      "main": [
+        [
+          {
+            "node": "Get message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get message": {
+      "main": [
+        [
+          {
+            "node": "Gemini: clean up",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini: clean up": {
+      "main": [
+        [
+          {
+            "node": "Parse task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse task": {
+      "main": [
+        [
+          {
+            "node": "Create Todoist task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Todoist task": {
+      "main": [
+        [
+          {
+            "node": "Confirm in Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirm in Telegram": {
+      "main": [
+        [
+          {
+            "node": "Mark read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "name": "Things → Todoist Import",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "things-import",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "wh",
+      "name": "Things Import Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        360,
+        300
+      ],
+      "webhookId": "things-import"
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nconst TOK = 'CHANGE_ME_TODOIST_TOKEN';\nconst API = 'https://api.todoist.com/api/v1';\nconst H = { 'Authorization': 'Bearer ' + TOK, 'Content-Type': 'application/json' };\nconst PLACEHOLDER = /^(name|notes|due date|when|area|project|tags)$/i;\nconst b = $json.body || $json;\nlet tasks = (b && b.tasks !== undefined) ? b.tasks : b;\nif (typeof tasks === 'string') {\n  const s = tasks.trim();\n  try { tasks = JSON.parse(s); }\n  catch(e) { tasks = s.split(/\\r?\\n/).map(l=>l.trim()).filter(Boolean).map(l=>{try{return JSON.parse(l);}catch(_){return null;}}).filter(Boolean); }\n}\nif (!Array.isArray(tasks)) tasks = [];\nlet have = new Set();\ntry { const ex = await this.helpers.httpRequest({ method:'GET', url: API+'/tasks', headers:H, json:true });\n      for (const t of (ex.results||ex||[])) if (t&&t.content) have.add(String(t.content).trim().toLowerCase()); } catch(e){}\nlet created=0, skipped=0, errors=0, date_dropped=0;\nconst clean = (v)=>{ v=String(v||'').trim(); return (!v||PLACEHOLDER.test(v))?'':v; };\nfor (const t of tasks) {\n  if (t==null || typeof t!=='object') continue;\n  if (t.completed===true || String(t.completed)==='true') continue;\n  const content = clean(t.title || t.content);\n  if (!content) continue;\n  const key = content.toLowerCase();\n  if (have.has(key)) { skipped++; continue; }\n  const body = { content: content.slice(0,400) };\n  const notes = clean(t.notes); if (notes) body.description = notes.slice(0,9000);\n  const due = clean(t.due);\n  if (due) { const m=due.match(/\\d{4}-\\d{2}-\\d{2}/); if (m) body.due_string=m[0]; else if (/\\d/.test(due)) body.due_string=due; }\n  const proj = clean(t.project || t.area);\n  if (proj) { const raw=proj.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,''); if (raw) body.labels=['Things_'+raw]; }\n  try { await this.helpers.httpRequest({ method:'POST', url:API+'/tasks', headers:H, body, json:true }); created++; have.add(key); }\n  catch(e) {\n    if (body.due_string) { delete body.due_string; date_dropped++;\n      try { await this.helpers.httpRequest({ method:'POST', url:API+'/tasks', headers:H, body, json:true }); created++; have.add(key); }\n      catch(e2){ errors++; } }\n    else errors++;\n  }\n}\nreturn [{ json: { ok:true, received: tasks.length, created, skipped, errors, date_dropped } }];\n"
+      },
+      "id": "imp",
+      "name": "Import to Todoist",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Things Import Webhook": {
+      "main": [
+        [
+          {
+            "node": "Import to Todoist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
