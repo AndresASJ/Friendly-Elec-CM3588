@@ -7,10 +7,10 @@ All persistent data lives off the eMMC. The eMMC holds only the OS — drives ho
 | Device | Mount | Size | Purpose |
 |--------|-------|------|---------|
 | `mmcblk0` | `/` | 64 GB | OS (eMMC) |
-| `nvme0n1p1` | `/mnt/drive1` + `/DATA` | 1.0 TB | Main: app data, primary media, photos, downloads |
-| `nvme1n1p1` | `/mnt/drive3` | 1.0 TB | Additional media |
-| `nvme2n1p1` | `/mnt/drive2` | 250 GB | Working space |
-| `nvme3n1p1` | `/mnt/drive4` | 1.0 TB | Additional media |
+| `nvme0n1p1` | `/mnt/drive1` + `/DATA` | 2 TB | Main: app data, primary media, photos, downloads |
+| `nvme1n1p1` | `/mnt/drive3` | 2 TB | Media (`shows`, `movies`) |
+| `nvme2n1p1` | `/mnt/drive2` | 2 TB | Media (`shows`) |
+| `nvme3n1p1` | `/mnt/drive4` | 2 TB | Media (`shows`, `movies`, books) |
 | `sda1` | `/mnt/toshiba` | 2 TB | USB cold backup |
 
 All drives are **ext4**.
@@ -120,6 +120,44 @@ This is invisible to the containers but lets you reset the OS without losing app
 For the `*arr` apps to import downloads as **hardlinks** (no double storage), Sonarr/Radarr and qBittorrent must mount the **exact same parent path**. That's why every relevant compose file mounts `/mnt/drive1:/mnt/drive1` rather than picking sub-paths.
 
 If you mount qBit at `/downloads` and Sonarr at `/tv`, hardlinks will **silently fail** and double your disk usage on import.
+
+## Media root folders span multiple drives
+
+The TV library is too big for one disk, so Sonarr is configured with **three
+`shows` root folders**, one per data drive:
+
+```
+/mnt/drive2/shows
+/mnt/drive3/shows
+/mnt/drive4/shows
+```
+
+Radarr similarly spreads `movies` across `drive1`, `drive3`, and `drive4`. New
+series/movies can be assigned to whichever root has room.
+
+### Rebalancing a full drive
+
+Because each series is tracked by its **path**, never `mv` a show folder across
+drives by hand — Sonarr would lose it. Instead let Sonarr relocate and update its
+own DB atomically:
+
+```bash
+API=<sonarr-api-key>; H=http://192.168.50.178:8989
+# fetch series, change rootFolderPath + path, PUT with moveFiles=true
+curl -s -H "X-Api-Key: $API" "$H/api/v3/series/<id>" > s.json
+#   edit rootFolderPath -> /mnt/driveN/shows and path accordingly
+curl -s -X PUT -H "X-Api-Key: $API" -H "Content-Type: application/json" \
+  "$H/api/v3/series/<id>?moveFiles=true" -d @s.json
+```
+
+This works the same cross-drive because there are **no hardlinks in the library**
+(downloads live on `drive1`, so imported media is already standalone copies) —
+moving across filesystems is a plain copy+delete with no doubling.
+
+> **2026-05-31 rebalance:** `drive2` hit 100% (≈7 GB free). Moved South Park
+> (246 GB → `drive3`), Rick and Morty (151 GB) and Curb Your Enthusiasm (100 GB →
+> `drive4`) via the Sonarr API, and deleted an 11 GB duplicate Prehistoric Planet
+> S02 folder. Result: drive2 72%, drive3 84%, drive4 78%.
 
 ## Permissions
 
