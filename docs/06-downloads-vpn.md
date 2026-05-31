@@ -26,6 +26,18 @@ If you `docker stop gluetun`, qBittorrent loses all networking instantly. That's
 
 ## Get your ProtonVPN WireGuard config
 
+> **qBit uses gluetun's NATIVE Proton provider, not a pinned wg0.conf.** A single
+> pinned server is a silent single point of failure — when Proton retires it the
+> tunnel dies quietly with no failover (this bit us: dead ~3 weeks, downloads + seeding
+> down, unnoticed). In provider mode gluetun **auto-rotates among healthy Proton
+> servers** using just your account's WG **private key** (it works across all Proton
+> servers). So from the config below you only need the `[Interface]` **PrivateKey** and
+> **Address** → put them in `WIREGUARD_PRIVATE_KEY` / `WIREGUARD_ADDRESSES` (see
+> [`compose/qbittorrent-gluetun.yml`](../compose/qbittorrent-gluetun.yml)), set
+> `VPN_SERVICE_PROVIDER: protonvpn` + `PORT_FORWARD_ONLY: on`, and do **NOT** place a
+> `wg0.conf` in `/gluetun/wireguard/` (its `Endpoint` line errors: *"server selection:
+> endpoint port is set"*). Steps below are how to obtain the key/address.
+
 1. Log into [account.proton.me/u/0/vpn/WireGuard](https://account.proton.me/u/0/vpn/WireGuard)
 2. **Create a new WireGuard config**:
    - Name: e.g. `qbit-port-forward`

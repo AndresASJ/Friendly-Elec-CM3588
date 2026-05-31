@@ -3,11 +3,21 @@
 # qBittorrent is forced through Gluetun via network_mode: service:gluetun.
 # If Gluetun stops, qBit has NO network. Hard kill-switch.
 #
+# Uses gluetun's NATIVE ProtonVPN provider (NOT a pinned custom wg0.conf).
+# Why: a single pinned server is a silent single point of failure — when Proton
+# retires that server the tunnel dies quietly (no failover) and downloads+seeding
+# stop until you notice. Provider mode lets gluetun auto-rotate among healthy
+# Proton servers using just your account's WireGuard private key (the key works
+# across all Proton servers). See docs/06-downloads-vpn.md.
+#
 # Before deploying:
-#   1. Get a WireGuard config from ProtonVPN (with port forwarding enabled)
-#   2. Save it as /mnt/drive1/AppData/gluetun-qbit/wg0.conf
-#   3. Place the port-forward update script at /mnt/drive1/AppData/gluetun-qbit/qbit-port-forward.sh
-#   4. Adjust FIREWALL_OUTBOUND_SUBNETS to your LAN subnet
+#   1. In your Proton account → WireGuard config: enable NAT-PMP (Port Forwarding),
+#      pick a P2P server, create. Copy the [Interface] PrivateKey + Address.
+#   2. Put the PrivateKey in WIREGUARD_PRIVATE_KEY and Address in WIREGUARD_ADDRESSES.
+#   3. Do NOT leave a wg0.conf in /gluetun/wireguard/ — in provider mode its Endpoint
+#      line makes gluetun error: "server selection: endpoint port is set".
+#   4. Place qbit-port-forward.sh at /mnt/drive1/AppData/gluetun-qbit/
+#   5. Adjust FIREWALL_OUTBOUND_SUBNETS to your LAN subnet
 
 name: qbittorrent
 services:
@@ -18,8 +28,12 @@ services:
       - NET_ADMIN
     environment:
       TZ: America/New_York
-      VPN_SERVICE_PROVIDER: custom
+      VPN_SERVICE_PROVIDER: protonvpn
       VPN_TYPE: wireguard
+      WIREGUARD_PRIVATE_KEY: CHANGE_ME          # [Interface] PrivateKey from a Proton WG config
+      WIREGUARD_ADDRESSES: 10.2.0.2/32          # [Interface] Address (IPv4) from that config
+      SERVER_COUNTRIES: United States           # gluetun auto-rotates among matching healthy servers
+      PORT_FORWARD_ONLY: "on"                   # only select port-forwarding-capable servers
       VPN_PORT_FORWARDING: "on"
       VPN_PORT_FORWARDING_PROVIDER: protonvpn
       VPN_PORT_FORWARDING_UP_COMMAND: '/bin/sh -c "/gluetun/qbit-port-forward.sh up {{PORT}} {{VPN_INTERFACE}}"'
