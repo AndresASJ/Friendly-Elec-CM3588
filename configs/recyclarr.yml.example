@@ -1,7 +1,10 @@
 # yaml-language-server: $schema=https://schemas.recyclarr.dev/v8/config-schema.json
 #
 # Copy this file to /root/recyclarr/recyclarr.yml and fill in:
-#   - base_url:  http://<container-ip>:8989 (Sonarr) or :7878 (Radarr)
+#   - base_url:  http://<HOST_LAN_IP>:8989 (Sonarr) / :7878 (Radarr).
+#                Use the host LAN IP (e.g. 192.168.50.178), NOT the Docker
+#                container IP — container IPs change on restart and Recyclarr
+#                then fails sync SILENTLY until you notice profile drift.
 #   - api_key:   from Settings → General in each app
 #
 # Test once manually:
@@ -10,11 +13,11 @@
 # Then it runs daily at 02:00 on a built-in cron.
 
 ################################################################################
-## Sonarr — WEB-1080p, x265 preferred (smallest acceptable size at 1080p)
+## Sonarr — WEB-1080p (smallest acceptable size at 1080p)
 ################################################################################
 sonarr:
   web-1080p:
-    base_url: http://<sonarr-container-ip>:8989
+    base_url: http://192.168.50.178:8989   # host LAN IP — see note above
     api_key: YOUR_SONARR_API_KEY
 
     quality_definition:
@@ -29,7 +32,18 @@ sonarr:
       add:
         - trash_id: 158188097a58d7687dee647e04af0da3   # [Required] Golden Rule HD
           select:
-            - 47435ece6b99a0b477caf360e79ba0bb         # x265 (HD) — smaller files
+            - 47435ece6b99a0b477caf360e79ba0bb         # x265 (HD)
+
+    # IMPORTANT: x265 (HD) ships from TRaSH at score -10000. With minFormatScore
+    # 0 that REJECTS every 1080p x265 release — the opposite of "prefer x265".
+    # Override to a small positive so x265 WEB is eligible + a mild tiebreak,
+    # while the WEB Tier formats (1600-1700) keep good h264 WEB dominant.
+    custom_formats:
+      - trash_ids:
+          - 47435ece6b99a0b477caf360e79ba0bb         # x265 (HD)
+        assign_scores_to:
+          - name: WEB-1080p
+            score: 100
 
 ################################################################################
 ## Radarr — SQP-1 1080p (TRaSH "Size Quality Preference" streaming tier)

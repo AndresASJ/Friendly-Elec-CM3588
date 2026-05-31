@@ -6,10 +6,12 @@ Without Recyclarr, you'd manually maintain ~100 custom formats per app and re-tu
 
 ## What this config does
 
-- **Sonarr** → `WEB-1080p` profile, with **x265 preferred** (smaller files, same quality)
+- **Sonarr** → `WEB-1080p` profile, with `x265 (HD)` **un-blocked** (see warning below)
 - **Radarr** → `SQP-1 (1080p)` profile (TRaSH's "Size Quality Preference" — streaming-grade releases at smallest acceptable size)
 
 These are aggressive about size — good if you have hundreds of GB free, not TB. For lossless quality, swap to `WEB-2160p` / `SQP-2`.
+
+> ⚠️ **x265 gotcha:** the `x265 (HD)` custom format ships from TRaSH at score **−10000**. With `minFormatScore: 0` that *rejects every 1080p x265 release* — so naively adding it to "prefer smaller files" actually **blocks** x265 entirely. To allow x265 you must override its score to a small positive (this config uses `+100`). Even then the WEB Tier formats (1600–1700) keep good h264 WEB releases dominant; +100 just makes x265 *eligible* and a mild tiebreak. (Discovered 2026-05-31 — the live profile had silently been rejecting x265 for weeks; see `journal/2026-05-31.md`.)
 
 ## Install
 
@@ -32,16 +34,16 @@ Then edit `/root/recyclarr/recyclarr.yml`:
 ```yaml
 sonarr:
   web-1080p:
-    base_url: http://<SONARR_CONTAINER_IP>:8989   # see below
+    base_url: http://192.168.50.178:8989          # host LAN IP — see below
     api_key: YOUR_SONARR_API_KEY                  # ← from Sonarr → Settings → General
 
 radarr:
   sqp-1-1080p:
-    base_url: http://<RADARR_CONTAINER_IP>:7878
+    base_url: http://192.168.50.178:7878
     api_key: YOUR_RADARR_API_KEY
 ```
 
-> **Why use the container IP not localhost or LAN IP?** Recyclarr runs inside its own Docker network, so it can't see `localhost`. The host's LAN IP works *if* the Sonarr/Radarr ports are bound to it. Easiest is `docker inspect sonarr | grep IPAddress` and paste that — but those IPs can change on restart. The most stable answer is to attach Recyclarr to the same Docker network as Sonarr/Radarr, then use container names. See compose comments.
+> **Use the host LAN IP, not the container IP.** Recyclarr runs in its own Docker network so `localhost` won't work, but the **host LAN IP (`192.168.50.178`)** does — the Sonarr/Radarr ports are published there. Do **not** paste the Docker container IP (`docker inspect sonarr | grep IPAddress`): those change on restart, and when they do **Recyclarr fails sync silently** — no error surfaces, the profile just quietly drifts. This actually happened here (Sonarr drifted to `172.17.0.7`, the config still pointed at `.9`), which is how `x265 (HD)` sat un-corrected at −10000 for weeks. The LAN IP is stable across restarts.
 
 ## Run it once manually
 
