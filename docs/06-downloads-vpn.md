@@ -173,6 +173,22 @@ docker start gluetun-qbit
 
 If `docker exec qbittorrent curl ifconfig.me` returns your **real** IP, **stop using the stack immediately** and double-check the compose — `network_mode: service:gluetun` is the critical line.
 
+## VPN-down alerting (cron → Telegram)
+
+A silent VPN death once hid for ~3 weeks (tunnel "connected" but `firewalled`,
+`listen_port=0`, 0 peers — no downloads/seeding). To catch it fast,
+[`scripts/vpn-healthcheck.sh`](../scripts/vpn-healthcheck.sh) runs every 5 min via
+root cron and pings @ASJNOTI_BOT **only on state change** (up→down and down→up, via a
+state file — no spam):
+
+```
+*/5 * * * * /usr/local/bin/vpn-healthcheck.sh >> /var/log/vpn-healthcheck.log 2>&1
+```
+
+It flags DOWN when qBit `connection_status` != `connected` OR `listen_port` == 0.
+Bot token + chat id live in `/root/.config/vpn-alert/telegram.cred` (chmod 600, **not**
+in the repo — the script reads them at runtime).
+
 ---
 
 ## Next
