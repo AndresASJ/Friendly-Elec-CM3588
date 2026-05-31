@@ -17,21 +17,21 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        200,
+        160,
         300
       ]
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const sd=$getWorkflowStaticData('global');return [{json:{offset: sd.tgOffset||0}}];"
+        "jsCode": "const sd=$getWorkflowStaticData('global');return [{json:{offset:sd.tgOffset||0}}];"
       },
       "id": "ro",
       "name": "Read offset",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        400,
+        340,
         300
       ]
     },
@@ -46,21 +46,21 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        600,
+        520,
         300
       ]
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const data = $json.result || $json.body?.result || [];\nconst sd = $getWorkflowStaticData('global');\nif (!data.length) return [];\nconst u = data[0];\nconst m = u.message;\nif (!m || !m.text) { sd.tgOffset = u.update_id + 1; return []; }\nconst SYS = \"You convert a rough note into a Todoist task. Respond ONLY with minified JSON: {\\\"content\\\":\\\"\\\",\\\"description\\\":\\\"\\\",\\\"due_string\\\":\\\"\\\",\\\"label\\\":\\\"\\\",\\\"priority\\\":1}. content=short imperative title. description=extra detail or empty string. due_string=natural-language date/time ONLY if the note implies one (e.g. 'thursday','tomorrow 9am','today'); else empty; never invent. label=ONE short category word if obvious (Blog, Church, Coding, Routines, Kord, Home, Errands), else empty string. priority=integer 1 (normal) to 4 (urgent); >1 only if urgency is clearly signaled.\";\nconst geminiBody = JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents:[{role:'user',parts:[{text:m.text}]}],generationConfig:{maxOutputTokens:400,temperature:0.2}});\nreturn [{ json: { text: m.text, chatId: m.chat.id, updateId: u.update_id, geminiBody } }];\n"
+        "jsCode": "const data=$json.result||$json.body?.result||[];const sd=$getWorkflowStaticData('global');if(!data.length)return [];const u=data[0];const m=u.message;if(!m||!m.text){sd.tgOffset=u.update_id+1;return [];}const SYS=\"You convert a rough note into a Todoist task. Respond ONLY with minified JSON: {\\\"content\\\":\\\"\\\",\\\"description\\\":\\\"\\\",\\\"due_string\\\":\\\"\\\",\\\"label\\\":\\\"\\\",\\\"priority\\\":1,\\\"action\\\":\\\"none\\\",\\\"person\\\":\\\"\\\"}. content=short imperative title. description=extra detail or empty string. due_string=natural-language date/time ONLY if implied (e.g. 'thursday','tomorrow 9am','today'); else empty; never invent. label=ONE short category word if obvious (Blog, Church, Coding, Routines, Kord, Home, Errands), else empty. priority=1 (normal) to 4 (urgent); >1 only if clearly urgent. action='call' if the note is about phoning a person, 'text' if texting/messaging a person, else 'none'. person=the contact name to call/text (e.g. 'Hendrix'), else empty.\";const geminiBody=JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents:[{role:'user',parts:[{text:m.text}]}],generationConfig:{maxOutputTokens:400,temperature:0.2}});return [{json:{text:m.text,chatId:m.chat.id,updateId:u.update_id,geminiBody}}];"
       },
       "id": "gm",
       "name": "Get message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        800,
+        700,
         300
       ]
     },
@@ -89,7 +89,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1000,
+        880,
         300
       ],
       "retryOnFail": true,
@@ -105,14 +105,49 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "\nlet t='';\ntry { t = $json.candidates?.[0]?.content?.parts?.[0]?.text || $json.body?.candidates?.[0]?.content?.parts?.[0]?.text || ''; } catch(e){}\nlet o={};\ntry { const m=t.match(/\\{[\\s\\S]*\\}/); if(m) o=JSON.parse(m[0]); } catch(e){}\n// Always capture into Inbox (no project_id -> never 404). Category becomes a label.\nconst task = { content: (o.content||'Untitled task').slice(0,400) };\nif (o.description) task.description = String(o.description);\nif (o.due_string) task.due_string = String(o.due_string);\nlet pr = parseInt(o.priority); if (pr>=1 && pr<=4) task.priority = pr;\nlet labelName = String(o.label||'').trim().replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');\nif (labelName) task.labels = [labelName];\nconst src = $('Get message').item.json;\nconst confirm = '✅ Added: ' + task.content\n  + (task.due_string ? ' 📅 ' + task.due_string : '')\n  + (labelName ? ' 🏷️ ' + labelName : '')\n  + (task.priority && task.priority>1 ? ' ❗p'+(5-task.priority) : '');\nreturn [{ json: { todoistBody: JSON.stringify(task), chatId: src.chatId, updateId: src.updateId, confirm } }];\n"
+        "jsCode": "\nlet t='';try{t=$json.candidates?.[0]?.content?.parts?.[0]?.text||$json.body?.candidates?.[0]?.content?.parts?.[0]?.text||'';}catch(e){}\nlet o={};try{const m=t.match(/\\{[\\s\\S]*\\}/);if(m)o=JSON.parse(m[0]);}catch(e){}\nconst action=['call','text'].includes(String(o.action))?o.action:'none';\nconst personSafe=String(o.person||'').replace(/[^A-Za-z0-9 ]/g,'').trim();\nconst src=$('Get message').item.json;\nreturn [{json:{\n  content:String(o.content||'Untitled task').slice(0,400),\n  description:String(o.description||''),\n  due_string:String(o.due_string||''),\n  label:String(o.label||''),\n  priority:(parseInt(o.priority)>=1&&parseInt(o.priority)<=4)?parseInt(o.priority):1,\n  action, personSafe, chatId:src.chatId, updateId:src.updateId }}];\n"
       },
       "id": "prs",
       "name": "Parse task",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1200,
+        1060,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT (SELECT phone_tel FROM contacts WHERE '{{ $json.personSafe }}'<>'' AND name_lower LIKE '%'||lower('{{ $json.personSafe }}')||'%' LIMIT 1) AS phone_tel, (SELECT phone_raw FROM contacts WHERE '{{ $json.personSafe }}'<>'' AND name_lower LIKE '%'||lower('{{ $json.personSafe }}')||'%' LIMIT 1) AS phone_raw",
+        "options": {}
+      },
+      "id": "pg",
+      "name": "Lookup contact",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1240,
+        300
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "CHANGE_ME",
+          "name": "n8n Postgres (contacts)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "\nconst t=$('Parse task').item.json;\nconst tel=$json.phone_tel, raw=$json.phone_raw;\nconst esc=s=>String(s).replace(/@/g,'\\\\@').replace(/#/g,'\\\\#');\nlet desc=t.description||'';\nlet actionNote='';\nif(tel && (t.action==='call'||t.action==='text')){\n  const links='📞 [Call](tel:'+tel+')  •  💬 [Text](sms:'+tel+')';\n  desc=(desc?desc+'\\n\\n':'')+links;\n  actionNote=' 📞 '+(raw||tel);\n} else if(t.action!=='none' && t.personSafe && !tel){\n  actionNote=' ⚠️ no contact \"'+t.personSafe+'\" found';\n}\nconst task={content:esc(t.content).slice(0,400)};\nif(desc) task.description=desc.slice(0,9000);\nif(t.due_string) task.due_string=t.due_string;\nif(t.priority>1) task.priority=t.priority;\nif(t.label){const l=t.label.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');if(l)task.labels=[l];}\nconst confirm='✅ Added: '+t.content\n +(t.due_string?' 📅 '+t.due_string:'')\n +(t.label?' 🏷️ '+t.label:'')\n +(t.priority>1?' ❗p'+(5-t.priority):'')\n +actionNote;\nreturn [{json:{todoistBody:JSON.stringify(task),chatId:t.chatId,updateId:t.updateId,confirm}}];\n"
+      },
+      "id": "bld",
+      "name": "Build task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1420,
         300
       ]
     },
@@ -132,7 +167,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1400,
+        1600,
         300
       ],
       "retryOnFail": true,
@@ -147,8 +182,8 @@
     },
     {
       "parameters": {
-        "chatId": "={{ $('Parse task').item.json.chatId }}",
-        "text": "={{ $('Parse task').item.json.confirm }}",
+        "chatId": "={{ $('Build task').item.json.chatId }}",
+        "text": "={{ $('Build task').item.json.confirm }}",
         "additionalFields": {}
       },
       "id": "cf",
@@ -156,7 +191,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1600,
+        1780,
         300
       ],
       "continueOnFail": true,
@@ -166,19 +201,19 @@
           "name": "Telegram - ASJ Noti bot"
         }
       },
-      "webhookId": "018c4818-1fb8-4026-8332-f5f6ac9b0c3c"
+      "webhookId": "156887e4-8602-4906-b420-0fef768ec6ad"
     },
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const sd=$getWorkflowStaticData('global');\nconst uid=$('Get message').item.json.updateId;\nif (uid!=null) sd.tgOffset = uid + 1;\nreturn $input.all();\n"
+        "jsCode": "const sd=$getWorkflowStaticData('global');const uid=$('Get message').item.json.updateId;if(uid!=null)sd.tgOffset=uid+1;return $input.all();"
       },
       "id": "adv",
       "name": "Mark read",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1800,
+        1960,
         300
       ]
     }
@@ -240,6 +275,28 @@
       ]
     },
     "Parse task": {
+      "main": [
+        [
+          {
+            "node": "Lookup contact",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup contact": {
+      "main": [
+        [
+          {
+            "node": "Build task",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build task": {
       "main": [
         [
           {

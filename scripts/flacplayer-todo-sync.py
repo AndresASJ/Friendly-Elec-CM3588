@@ -7,7 +7,7 @@
 import json, subprocess, base64, re, hashlib, urllib.request, urllib.error
 TOK=open("/root/.config/flac-sync/todoist.token").read().strip()
 API="https://api.todoist.com/api/v1"; H={"Authorization":"Bearer "+TOK,"Content-Type":"application/json"}
-REPO="AndresASJ/FlacPlayer"; LABEL="FlacPlayer"
+REPO="AndresASJ/FlacPlayer"; LABEL="FlacPlayer"; KORD_SECTION="6gjxpvQrR6xr26Gr"  # Inbox > Kord section
 def td(method,path,body=None):
     r=urllib.request.Request(API+path,data=(json.dumps(body).encode() if body is not None else None),headers=H,method=method)
     try:
@@ -55,7 +55,7 @@ for fid,it in want.items():
     if fid in existing: continue
     desc=("["+it["section"]+"]\n"+it["desc"]).strip() if it.get("section") else (it.get("desc") or "")
     desc=(desc+"\n\nfpid:"+fid).strip()
-    s,_=td("POST","/tasks",{"content":esc(it["title"]),"labels":[LABEL],"description":desc[:9000]})
+    s,_=td("POST","/tasks",{"content":esc(it["title"]),"labels":[LABEL],"section_id":KORD_SECTION,"description":desc[:9000]})
     if s==200: created+=1
 for fid,t in existing.items():
     if fid not in want:
