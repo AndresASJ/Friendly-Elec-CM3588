@@ -189,6 +189,50 @@ It flags DOWN when qBit `connection_status` != `connected` OR `listen_port` == 0
 Bot token + chat id live in `/root/.config/vpn-alert/telegram.cred` (chmod 600, **not**
 in the repo — the script reads them at runtime).
 
+## Private-tracker "download slot limit" (ratio standing)
+
+seedpool (and other UNIT3D trackers) cap how many torrents your account may **leech at
+once** based on standing. If your ratio drops far enough, that cap can fall to ~0 and
+the tracker rejects every announce with:
+
+```
+Download slot limit reached
+```
+
+Symptom: a grabbed torrent sits at 0% / 0 seeds; in qBit, **Trackers** tab shows that
+message with status *not working*. This is **not** a per-client concurrency setting —
+verified by pausing down to a single active torrent and still being rejected. It only
+clears as your **ratio recovers** on that tracker (keep seeding), or by spending a
+freeleech token, or by grabbing the content from a different indexer.
+
+> This bit us after the 3-week silent VPN death tanked our seedpool ratio. The R&M
+> re-grab was unblocked by pulling from **1337x** (public — no ratio/slots) instead.
+> See [`journal/2026-06-01.md`](../journal/2026-06-01.md).
+
+## Forcing a deliberate quality *downgrade* re-grab (Remux → x265)
+
+To reclaim disk you sometimes want to **replace a fat Bluray Remux with a small x265**
+of the same episodes. Sonarr/Radarr treat that as a downgrade and **refuse to import**:
+
+```
+Not an upgrade for existing episode file(s). Existing quality: Bluray-1080p Remux.
+New Quality Bluray-1080p.
+```
+
+The downloaded file then just stalls in the client, never replacing the Remux. Override
+it via the **manual import API** (which ignores the "not an upgrade" rejection):
+
+```bash
+# move mode = reclaim space (old Remux deleted on import). Use copy to keep seeding.
+scripts/sonarr-force-import.py --series-id 31 \
+  --folder "/mnt/drive1/torrents/complete/Some.x265.Pack" --mode move
+```
+
+See [`scripts/sonarr-force-import.py`](../scripts/sonarr-force-import.py). It reads the
+Sonarr API key from `config.xml` (never hard-coded) and talks to Sonarr over the LAN IP
+(container-name DNS is broken across CasaOS app networks). Recycle bin is off on this
+box, so replaced Remux files are deleted outright — space frees immediately.
+
 ---
 
 ## Next
