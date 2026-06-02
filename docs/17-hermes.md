@@ -100,8 +100,16 @@ auxiliary:
 - **Lock the allowlist.** Hermes is an agent with real tools (shell, file access, cron).
   `TELEGRAM_ALLOWED_USERS` must be set to your own ID — otherwise anyone who finds the
   bot can drive it and burn the Gemini quota. Secret redaction is enabled by default.
-- **Dashboard is localhost-only** by design (it stores API keys). For remote access,
-  add an authenticated NPM proxy host → `127.0.0.1:9119`; do **not** bind it to `0.0.0.0`.
+- **Dashboard is localhost-only** by design (it stores API keys). Reach it remotely with
+  an **SSH tunnel over Tailscale** — no rebind, nothing disabled:
+  ```bash
+  ssh -L 9119:127.0.0.1:9119 root@100.93.113.80   # tailnet IP of cm3588-nas
+  # then open http://localhost:9119
+  ```
+  Hermes **refuses to bind the dashboard to a non-loopback IP** unless you pass
+  `HERMES_DASHBOARD_INSECURE=1` (skips its auth gate) or register a DashboardAuthProvider
+  / OAuth (`HERMES_DASHBOARD_OAUTH_CLIENT_ID`). The SSH tunnel avoids both. Do **not**
+  bind to `0.0.0.0`.
 - **Run as root inside the container** (`HERMES_UID=0`) so it can own the root-owned
   `/mnt/drive1/AppData/hermes` bind mount. It is otherwise containerized.
 
