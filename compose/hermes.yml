@@ -1,4 +1,9 @@
 name: hermes
+# Single-container design: the gateway image has a built-in dashboard service that
+# activates with HERMES_DASHBOARD=1, supervised under the SAME s6 tree. Running the
+# dashboard as a second container that shares /opt/data causes both to fight over the
+# s6-log lock (gateways/default/lock → "Resource busy") and the gateway never connects.
+# One container, one s6 tree = no lock contention. See docs/17-hermes.md.
 services:
     gateway:
         image: hermes-agent:latest
@@ -8,35 +13,15 @@ services:
         env_file:
             - /mnt/drive1/AppData/hermes/hermes.env
         environment:
-            - HERMES_UID=0
-            - HERMES_GID=0
+            # Run the dashboard inside this same container (no second container).
+            - HERMES_DASHBOARD=1
+            - HERMES_DASHBOARD_HOST=127.0.0.1   # localhost only; front with NPM for remote
+            - HERMES_DASHBOARD_PORT=9119
         volumes:
             - type: bind
               source: /mnt/drive1/AppData/hermes
               target: /opt/data
         command: ["gateway", "run"]
-        x-casaos:
-            volumes:
-                - container: /opt/data
-                  description:
-                    en_us: Hermes data, memory, and skills
-    dashboard:
-        image: hermes-agent:latest
-        container_name: hermes-dashboard
-        restart: unless-stopped
-        network_mode: host
-        depends_on:
-            - gateway
-        env_file:
-            - /mnt/drive1/AppData/hermes/hermes.env
-        environment:
-            - HERMES_UID=0
-            - HERMES_GID=0
-        volumes:
-            - type: bind
-              source: /mnt/drive1/AppData/hermes
-              target: /opt/data
-        command: ["dashboard", "--host", "127.0.0.1", "--no-open"]
         x-casaos:
             ports:
                 - container: "9119"
@@ -57,7 +42,7 @@ x-casaos:
     icon: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/assets/icon.png
     index: /
     is_uncontrolled: false
-    main: dashboard
+    main: gateway
     port_map: "9119"
     scheme: http
     store_app_id: hermes

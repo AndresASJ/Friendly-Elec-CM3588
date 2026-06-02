@@ -9,12 +9,16 @@ Installed 2026-06-02 (see [`journal/2026-06-02.md`](../journal/2026-06-02.md)).
 
 | Container | Image | Purpose |
 |-----------|-------|---------|
-| `hermes` | `hermes-agent:latest` (built locally) | Agent + Telegram gateway (`gateway run`) |
-| `hermes-dashboard` | `hermes-agent:latest` | Web dashboard, **127.0.0.1:9119 only** |
+| `hermes` | `hermes-agent:latest` (built locally) | Agent + Telegram gateway **and** the web dashboard, in one container |
 
-Both use `network_mode: host` and share the data volume `/mnt/drive1/AppData/hermes`
-→ `/opt/data`. Telegram runs in **long-polling** mode, so no inbound port / port-forward
-is needed (works behind the LAN/NAT).
+**One container, not two.** The image's s6 tree runs the dashboard as a co-supervised
+service when `HERMES_DASHBOARD=1`. Do **not** run the dashboard as a separate container
+sharing `/opt/data` — see the s6-log lock gotcha below. `network_mode: host`, data at
+`/mnt/drive1/AppData/hermes` → `/opt/data`, dashboard on **127.0.0.1:9119**. Telegram
+runs in **long-polling** mode, so no inbound port / port-forward is needed.
+
+Dashboard env knobs: `HERMES_DASHBOARD=1`, `HERMES_DASHBOARD_HOST=127.0.0.1`,
+`HERMES_DASHBOARD_PORT=9119`.
 
 ## Build
 
@@ -71,6 +75,26 @@ model:
 
 Then restart (see caveats below — use down/up, not `restart`).
 
+### Efficiency: route side tasks to a separate model (free-tier quota)
+
+The free tier limits **5 requests/minute *per model*** (`GenerateRequestsPerMinutePer
+ProjectPerModel`). The agent fans out several calls per message (main reply + vision
+detect + title generation + compression), so they collide on one model and 429. Fix:
+keep the main reply on `gemini-3.5-flash` and route all auxiliary tasks to a *different*
+model (`gemini-flash-lite-latest`) via the `gemini` provider — separate quota bucket,
+cheaper, faster, and no wasted OpenRouter/Nous "auto" fallback attempts:
+
+```yaml
+auxiliary:
+  vision:           { provider: "gemini", model: "gemini-flash-lite-latest" }
+  web_extract:      { provider: "gemini", model: "gemini-flash-lite-latest" }
+  session_search:   { provider: "gemini", model: "gemini-flash-lite-latest" }
+  title_generation: { provider: "gemini", model: "gemini-flash-lite-latest" }
+  approval:         { provider: "gemini", model: "gemini-flash-lite-latest" }
+  mcp:              { provider: "gemini", model: "gemini-flash-lite-latest" }
+  compression:      { provider: "gemini", model: "gemini-flash-lite-latest" }
+```
+
 ## Security notes
 
 - **Lock the allowlist.** Hermes is an agent with real tools (shell, file access, cron).
@@ -99,9 +123,16 @@ no trigger node — does not conflict.)
 - **`restart` ≠ recreate.** Env/secret changes need the container recreated
   (`docker compose -f /var/lib/casaos/apps/hermes/docker-compose.yml up -d
   --force-recreate`); a bare `docker restart` keeps the old baked-in env.
-- **s6-log lock wedge.** A too-fast `docker restart hermes` left
-  `s6-log: fatal: unable to lock .../gateways/default/lock: Resource busy` and the
-  gateway never reconnected. Fix: full `docker compose down && up -d`.
+- **s6-log lock wedge — the big one.** `s6-log: fatal: unable to lock
+  .../gateways/default/lock: Resource busy`, gateway never connects. Two causes, both
+  fixed by the single-container design:
+  1. **Two containers sharing `/opt/data`** (separate gateway + dashboard) each spawn an
+     s6-log for the same `gateways/default` dir and fight over the lock — permanent.
+     Fix: run the dashboard inside the gateway container via `HERMES_DASHBOARD=1`.
+  2. **Orphaned s6-log** from a killed container can keep holding the lock for a bit
+     (`fuser .../lock` shows the stale `s6-log` PID). It self-clears in ~30–60s; if not,
+     `docker compose down`, confirm no stray `s6-log` (`pgrep -af s6-log`), then `up -d`.
+  A bare `docker restart` can trigger (2); prefer `down && up -d`.
 - **`/start` is a registration ping, not a prompt** — Hermes logs
   `Ignoring /start platform ping` and does not reply. Send a real message to test.
 - **Gemini free-tier = 5 requests/minute** for `gemini-3.5-flash`. The agent fans out
