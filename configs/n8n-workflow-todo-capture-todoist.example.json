@@ -53,7 +53,7 @@
     {
       "parameters": {
         "language": "javaScript",
-        "jsCode": "const data=$json.result||$json.body?.result||[];const sd=$getWorkflowStaticData('global');if(!data.length)return [];const u=data[0];const m=u.message;if(!m||!m.text){sd.tgOffset=u.update_id+1;return [];}const SYS=\"You convert a rough note into a Todoist task. Respond ONLY with minified JSON: {\\\"content\\\":\\\"\\\",\\\"description\\\":\\\"\\\",\\\"due_string\\\":\\\"\\\",\\\"label\\\":\\\"\\\",\\\"priority\\\":1,\\\"action\\\":\\\"none\\\",\\\"person\\\":\\\"\\\"}. content=short imperative title. description=extra detail or empty string. due_string=natural-language date/time ONLY if implied (e.g. 'thursday','tomorrow 9am','today'); else empty; never invent. label=ONE short category word if obvious (Blog, Church, Coding, Routines, Kord, Home, Errands), else empty. priority=1 (normal) to 4 (urgent); >1 only if clearly urgent. action='call' if the note is about phoning a person, 'text' if texting/messaging a person, else 'none'. person=the contact name to call/text (e.g. 'Hendrix'), else empty.\";const geminiBody=JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents:[{role:'user',parts:[{text:m.text}]}],generationConfig:{maxOutputTokens:400,temperature:0.2}});return [{json:{text:m.text,chatId:m.chat.id,updateId:u.update_id,geminiBody}}];"
+        "jsCode": "const data=$json.result||$json.body?.result||[];const sd=$getWorkflowStaticData('global');if(!data.length)return [];const u=data[0];const m=u.message;if(!m||!m.text){sd.tgOffset=u.update_id+1;return [];}const SYS=\"You convert a rough note into a Todoist task. Respond ONLY with minified JSON: {\\\"content\\\":\\\"\\\",\\\"description\\\":\\\"\\\",\\\"due_string\\\":\\\"\\\",\\\"label\\\":\\\"\\\",\\\"priority\\\":1,\\\"action\\\":\\\"none\\\",\\\"person\\\":\\\"\\\"}. content=short imperative title. description=extra detail or empty string. due_string=natural-language date/time ONLY if implied (e.g. 'thursday','tomorrow 9am','today'); else empty; never invent. label=ONE category that matches an existing list section when the task clearly fits one (Blog, Church, Coding, Kord, Routines); otherwise a short tag word, or empty. priority=1 (normal) to 4 (urgent); >1 only if clearly urgent. action='call' if the note is about phoning a person, 'text' if texting/messaging a person, else 'none'. person=the contact name to call/text (e.g. 'Hendrix'), else empty.\";const geminiBody=JSON.stringify({system_instruction:{parts:[{text:SYS}]},contents:[{role:'user',parts:[{text:m.text}]}],generationConfig:{maxOutputTokens:400,temperature:0.2}});return [{json:{text:m.text,chatId:m.chat.id,updateId:u.update_id,geminiBody}}];"
       },
       "id": "gm",
       "name": "Get message",
@@ -139,15 +139,38 @@
     },
     {
       "parameters": {
+        "method": "GET",
+        "url": "https://api.todoist.com/api/v1/sections",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "gs",
+      "name": "Get sections",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1420,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CHANGE_ME",
+          "name": "Todoist API"
+        }
+      }
+    },
+    {
+      "parameters": {
         "language": "javaScript",
-        "jsCode": "\nconst t=$('Parse task').item.json;\nconst tel=$json.phone_tel, raw=$json.phone_raw;\nconst esc=s=>String(s).replace(/@/g,'\\\\@').replace(/#/g,'\\\\#');\nlet desc=t.description||'';\nlet actionNote='';\nif(tel && (t.action==='call'||t.action==='text')){\n  const links='📞 [Call](tel:'+tel+')  •  💬 [Text](sms:'+tel+')';\n  desc=(desc?desc+'\\n\\n':'')+links;\n  actionNote=' 📞 '+(raw||tel);\n} else if(t.action!=='none' && t.personSafe && !tel){\n  actionNote=' ⚠️ no contact \"'+t.personSafe+'\" found';\n}\nconst task={content:esc(t.content).slice(0,400)};\nif(desc) task.description=desc.slice(0,9000);\nif(t.due_string) task.due_string=t.due_string;\nif(t.priority>1) task.priority=t.priority;\nif(t.label){const l=t.label.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');if(l)task.labels=[l];}\nconst confirm='✅ Added: '+t.content\n +(t.due_string?' 📅 '+t.due_string:'')\n +(t.label?' 🏷️ '+t.label:'')\n +(t.priority>1?' ❗p'+(5-t.priority):'')\n +actionNote;\nreturn [{json:{todoistBody:JSON.stringify(task),chatId:t.chatId,updateId:t.updateId,confirm}}];\n"
+        "jsCode": "\nconst t=$('Parse task').item.json;\nconst lc=$('Lookup contact').item.json;\nconst tel=lc.phone_tel, raw=lc.phone_raw;\nconst esc=s=>String(s).replace(/@/g,'\\\\@').replace(/#/g,'\\\\#');\nlet desc=t.description||'';\nlet actionNote='';\nif(tel && (t.action==='call'||t.action==='text')){\n  const links='\\ud83d\\udcde [Call](tel:'+tel+')  \\u2022  \\ud83d\\udcac [Text](sms:'+tel+')';\n  desc=(desc?desc+'\\n\\n':'')+links;\n  actionNote=' \\ud83d\\udcde '+(raw||tel);\n} else if(t.action!=='none' && t.personSafe && !tel){\n  actionNote=' \\u26a0\\ufe0f no contact \"'+t.personSafe+'\" found';\n}\nconst task={content:esc(t.content).slice(0,400)};\nif(desc) task.description=desc.slice(0,9000);\nif(t.due_string) task.due_string=t.due_string;\nif(t.priority>1) task.priority=t.priority;\n// Auto-file: match Gemini's category to an existing Todoist section (case-insensitive).\nconst sres=$('Get sections').item.json;\nconst sections=Array.isArray(sres)?sres:(sres.results||[]);\nconst cat=String(t.label||'').trim();\nlet sectionName='';\nif(cat){const m=sections.find(s=>String(s.name).toLowerCase()===cat.toLowerCase());if(m){task.section_id=m.id;sectionName=m.name;}}\n// Tag with a label ONLY when it did not map to a section (avoids section/label redundancy).\nif(cat && !sectionName){const l=cat.replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'');if(l)task.labels=[l];}\nconst confirm='\\u2705 Added: '+t.content\n +(t.due_string?' \\ud83d\\udcc5 '+t.due_string:'')\n +(sectionName?' \\ud83d\\udcc2 '+sectionName:(cat?' \\ud83c\\udff7\\ufe0f '+cat:''))\n +(t.priority>1?' \\u2757p'+(5-t.priority):'')\n +actionNote;\nreturn [{json:{todoistBody:JSON.stringify(task),chatId:t.chatId,updateId:t.updateId,confirm}}];\n"
       },
       "id": "bld",
       "name": "Build task",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1420,
+        1600,
         300
       ]
     },
@@ -167,7 +190,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1600,
+        1780,
         300
       ],
       "retryOnFail": true,
@@ -191,7 +214,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1780,
+        1960,
         300
       ],
       "continueOnFail": true,
@@ -213,7 +236,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1960,
+        2140,
         300
       ]
     }
@@ -289,7 +312,7 @@
       "main": [
         [
           {
-            "node": "Build task",
+            "node": "Get sections",
             "type": "main",
             "index": 0
           }
@@ -323,6 +346,17 @@
         [
           {
             "node": "Mark read",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get sections": {
+      "main": [
+        [
+          {
+            "node": "Build task",
             "type": "main",
             "index": 0
           }
