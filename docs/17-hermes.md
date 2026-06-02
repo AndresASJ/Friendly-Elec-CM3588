@@ -46,21 +46,30 @@ casaos-cli app-management install -f compose/hermes.yml
 
 ## Configuration
 
-All config is injected via `env_file: /mnt/drive1/AppData/hermes/hermes.env`:
+Secrets are injected via `env_file: /mnt/drive1/AppData/hermes/hermes.env`:
 
 | Variable | What to set |
 |----------|-------------|
 | `GEMINI_API_KEY` | Google AI Studio key ([aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)) |
-| `LLM_MODEL` | `google/gemini-3.5-flash` |
-| `TELEGRAM_BOT_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) |
+| `TELEGRAM_BOT_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) — **dedicated** bot `@ASJsHermesBot` |
 | `TELEGRAM_ALLOWED_USERS` | Your numeric Telegram user ID (from [@userinfobot](https://t.me/userinfobot)) — **locks the bot to you** |
 | `TELEGRAM_HOME_CHANNEL` | Chat for proactive/cron deliveries (usually your own ID) |
 
-After editing the env file:
+### Model selection lives in `config.yaml`, NOT the env var
 
-```bash
-casaos-cli app-management restart hermes
+`LLM_MODEL` in the env is **ignored** — the agent reads `/opt/data/config.yaml`
+(`/mnt/drive1/AppData/hermes/config.yaml`). The shipped default is
+`anthropic/claude-opus-4.6` via OpenRouter `provider: auto`, which 401s with no key.
+Set it to Gemini:
+
+```yaml
+model:
+  default: "gemini-3.5-flash"
+  provider: "gemini"          # Google AI Studio direct, uses GEMINI_API_KEY
+  # base_url:                  # leave to the gemini provider's own endpoint
 ```
+
+Then restart (see caveats below — use down/up, not `restart`).
 
 ## Security notes
 
@@ -79,6 +88,26 @@ bot is also used by an **n8n Telegram-trigger** node (see
 [`docs/15-n8n.md`](15-n8n.md)), the two will fight over updates and one will silently
 break. Hermes needs its **own** bot. (A bot used by n8n only to *send* notifications —
 no trigger node — does not conflict.)
+
+## Gotchas (learned during install)
+
+- **CasaOS inlines `env_file` at install time.** `casaos-cli install` resolved the
+  `env_file:` into literal `environment:` entries in
+  `/var/lib/casaos/apps/hermes/docker-compose.yml`. So editing `hermes.env` alone does
+  **not** change running secrets — edit the CasaOS-managed compose (or re-install) and
+  recreate. The repo `compose/hermes.yml` stays clean (env_file only).
+- **`restart` ≠ recreate.** Env/secret changes need the container recreated
+  (`docker compose -f /var/lib/casaos/apps/hermes/docker-compose.yml up -d
+  --force-recreate`); a bare `docker restart` keeps the old baked-in env.
+- **s6-log lock wedge.** A too-fast `docker restart hermes` left
+  `s6-log: fatal: unable to lock .../gateways/default/lock: Resource busy` and the
+  gateway never reconnected. Fix: full `docker compose down && up -d`.
+- **`/start` is a registration ping, not a prompt** — Hermes logs
+  `Ignoring /start platform ping` and does not reply. Send a real message to test.
+- **Gemini free-tier = 5 requests/minute** for `gemini-3.5-flash`. The agent fans out
+  multiple calls per message (main + vision detect + title generation), so auxiliary
+  calls 429 (`limit: 5`) even though the main reply succeeds. Enable billing on the
+  Google Cloud project, or trim auxiliary features, for heavier use.
 
 ## Verify
 
