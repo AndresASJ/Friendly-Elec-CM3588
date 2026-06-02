@@ -52,6 +52,9 @@ Then follow the docs in order:
 | 12 | [Recyclarr](docs/12-recyclarr.md) | TRaSH Guides automation |
 | 13 | [Backups & maintenance](docs/13-backups-and-maintenance.md) | What to back up, how often |
 | 14 | [Troubleshooting](docs/14-troubleshooting.md) | Common gotchas |
+| 15 | [n8n](docs/15-n8n.md) | Workflow automation (n8n + Postgres) |
+| 16 | [Hardlinking migration](docs/16-hardlinking-migration-plan.md) | Planned mergerfs/hardlink fix |
+| 17 | [Hermes Agent](docs/17-hermes.md) | Self-hosted AI agent (Gemini 3.5 Flash) on Telegram |
 
 See [`journal/`](journal/) for a running daily log of changes.
 

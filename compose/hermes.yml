@@ -1,0 +1,68 @@
+name: hermes
+services:
+    gateway:
+        image: hermes-agent:latest
+        container_name: hermes
+        restart: unless-stopped
+        network_mode: host
+        env_file:
+            - /mnt/drive1/AppData/hermes/hermes.env
+        environment:
+            - HERMES_UID=0
+            - HERMES_GID=0
+        volumes:
+            - type: bind
+              source: /mnt/drive1/AppData/hermes
+              target: /opt/data
+        command: ["gateway", "run"]
+        x-casaos:
+            volumes:
+                - container: /opt/data
+                  description:
+                    en_us: Hermes data, memory, and skills
+    dashboard:
+        image: hermes-agent:latest
+        container_name: hermes-dashboard
+        restart: unless-stopped
+        network_mode: host
+        depends_on:
+            - gateway
+        env_file:
+            - /mnt/drive1/AppData/hermes/hermes.env
+        environment:
+            - HERMES_UID=0
+            - HERMES_GID=0
+        volumes:
+            - type: bind
+              source: /mnt/drive1/AppData/hermes
+              target: /opt/data
+        command: ["dashboard", "--host", "127.0.0.1", "--no-open"]
+        x-casaos:
+            ports:
+                - container: "9119"
+                  description:
+                    en_us: Hermes dashboard (localhost only)
+            volumes:
+                - container: /opt/data
+                  description:
+                    en_us: Hermes data, memory, and skills
+x-casaos:
+    architectures:
+        - arm64
+    author: Self
+    category: AI
+    description:
+        en_us: Hermes Agent — self-hosted autonomous AI agent (Nous Research) with persistent memory and a Telegram gateway. Brain - Google Gemini 3.5 Flash.
+    developer: Nous Research
+    icon: https://raw.githubusercontent.com/NousResearch/hermes-agent/main/assets/icon.png
+    index: /
+    is_uncontrolled: false
+    main: dashboard
+    port_map: "9119"
+    scheme: http
+    store_app_id: hermes
+    tagline:
+        en_us: Self-hosted AI agent with memory, reachable on Telegram
+    title:
+        custom: ""
+        en_us: Hermes Agent
