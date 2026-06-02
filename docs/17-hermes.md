@@ -121,6 +121,28 @@ bot is also used by an **n8n Telegram-trigger** node (see
 break. Hermes needs its **own** bot. (A bot used by n8n only to *send* notifications —
 no trigger node — does not conflict.)
 
+## n8n MCP (drive n8n from Telegram)
+
+Hermes ships a Nous-approved **n8n MCP** in its catalog. It connects Hermes to the live
+n8n API over a stdio subprocess (no public port). Installed 2026-06-02.
+
+```bash
+# inside the container; clones the bridge into /opt/data/mcp-installs/n8n + venv
+docker exec -i hermes hermes mcp install n8n
+#   n8n instance URL: http://127.0.0.1:5678   (host net; reaches the n8n container)
+#   n8n API key:      generate in n8n → Settings → API
+docker compose -f /var/lib/casaos/apps/hermes/docker-compose.yml restart   # load tools
+docker exec hermes hermes mcp test n8n        # verify: "Connected", tools discovered
+```
+
+- **Creds** are written to `/opt/data/.env` (`N8N_BASE_URL`, `N8N_API_KEY`) — git-ignored.
+- **Read-only by default.** Only 8 tools are whitelisted in `mcp_servers.n8n.tools.include`
+  (health, list/get/find_workflows, list/get_execution, recent_failures, export_workflow).
+  The mutating tools (`activate_workflow`, `deactivate_workflow`, `container_logs`) are
+  discovered but **excluded** — they never register with the agent. Opt in only if wanted.
+- Survives rebuilds (lives in the `/opt/data` volume, not the image). Re-run
+  `hermes mcp install n8n` to refresh the pinned bridge.
+
 ## Gotchas (learned during install)
 
 - **CasaOS inlines `env_file` at install time.** `casaos-cli install` resolved the
