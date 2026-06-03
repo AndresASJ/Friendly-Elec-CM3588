@@ -36,6 +36,7 @@ services:
   slskd:
     image: slskd/slskd:latest
     container_name: slskd
+    user: "1000:1000"   # download as uid 1000 so Soularr/Lidarr can import (was root)
     depends_on:
       - gluetun
     network_mode: service:gluetun
