@@ -75,6 +75,27 @@ model:
 
 Then restart (see caveats below — use down/up, not `restart`).
 
+### Auto-fallback when a model hits its quota (2026-06-03)
+
+`gemini-3.5-flash`'s free tier is only **~20 requests/day**. Hermes' `fallback_model`
+(top-level, a chain) auto-rolls to the next model on a 429/529/503 — and each Gemini model
+has its **own** free-tier daily bucket, so replies keep flowing:
+
+```yaml
+model:
+  default: gemini-3.5-flash   # best, ~20/day free
+  provider: gemini
+fallback_model:
+  - { provider: gemini, model: gemini-2.5-flash }       # ~250/day free
+  - { provider: gemini, model: gemini-2.5-flash-lite }  # ~1000/day free
+```
+
+> Note: `config.yaml` must be **readable by the runtime user** (uid 10000). If Hermes logs
+> *"Permission denied … Falling back to default config — every override IGNORED"*, it's
+> silently using `anthropic/claude-opus` via OpenRouter (which 401s). The s6 init chowns
+> `/opt/data` to 10000 on boot, but after editing as root, confirm a clean boot with no
+> "Falling back to default config" line.
+
 ### Efficiency: route side tasks to a separate model (free-tier quota)
 
 The free tier limits **5 requests/minute *per model*** (`GenerateRequestsPerMinutePer
