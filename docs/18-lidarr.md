@@ -33,6 +33,18 @@ casaos-cli app-management install -f compose/lidarr.yml
   pushes its music-capable indexers automatically (currently 1337x, DigitalCore,
   seedpool).
 
+## Request-only monitoring (important)
+
+Soularr auto-grabs **every monitored album** on its list, so monitoring a full discography
+floods Soulseek with hundreds of downloads. This stack is therefore run **request-only**:
+
+- All artists have `monitorNewItems = none` and **no albums monitored** by default.
+- A song/album is only ever pulled when explicitly requested (via Hermes or the Lidarr UI):
+  monitor *just that album* → `AlbumSearch`. Nothing else.
+- Hermes is instructed to add artists with `monitor:"none"` and monitor only the one requested
+  album — see [`docs/17-hermes.md`](17-hermes.md). (Earlier `monitor:"all"` default caused a
+  157-album flood; fixed 2026-06-03 — see that day's journal.)
+
 ## Notes
 
 - **Soulseek (slskd)** is also wired now via the **Soularr** bridge — see
