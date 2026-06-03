@@ -136,12 +136,27 @@ docker exec hermes hermes mcp test n8n        # verify: "Connected", tools disco
 ```
 
 - **Creds** are written to `/opt/data/.env` (`N8N_BASE_URL`, `N8N_API_KEY`) — git-ignored.
-- **Read-only by default.** Only 8 tools are whitelisted in `mcp_servers.n8n.tools.include`
-  (health, list/get/find_workflows, list/get_execution, recent_failures, export_workflow).
-  The mutating tools (`activate_workflow`, `deactivate_workflow`, `container_logs`) are
-  discovered but **excluded** — they never register with the agent. Opt in only if wanted.
 - Survives rebuilds (lives in the `/opt/data` volume, not the image). Re-run
   `hermes mcp install n8n` to refresh the pinned bridge.
+
+### Tool scope (2026-06-03: create/edit enabled)
+
+The MCP bridge only exposes read + `activate_workflow`/`deactivate_workflow` — it has
+**no create/edit tool**. To allow create + edit, two changes were made:
+
+1. **`mcp_servers.n8n.tools.include`** now also whitelists `activate_workflow` and
+   `deactivate_workflow` (on/off control). `container_logs` stays excluded.
+2. **Create/edit via the n8n REST API.** The API key (`/opt/data/.env`) has full CRUD.
+   A standing instruction in `/opt/data/memories/USER.md` tells the agent it may
+   `POST /api/v1/workflows` (create) and `PUT /api/v1/workflows/{id}` (edit), reading the
+   key from `/opt/data/.env`, **with guardrails**: confirm before create/edit, create new
+   workflows inactive, never `DELETE` without an explicit named request, don't touch the
+   5 production workflows unless asked by name.
+
+> ⚠️ n8n community API keys are **full-access** (no read-only scope), so the key also
+> permits delete. The protection is the Telegram allowlist (owner-only) + the USER.md
+> guardrails. Tighten by reverting `tools.include` to read-only and removing the USER.md
+> n8n section if you want it locked down again.
 
 ## Gotchas (learned during install)
 
