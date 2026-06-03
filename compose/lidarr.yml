@@ -1,0 +1,56 @@
+name: lidarr
+# Music *arr. Mirrors the radarr/sonarr pattern (LinuxServer image, PUID/PGID 1000,
+# /mnt/drive1 mounted 1:1 so hardlink imports work between qBit downloads
+# (/mnt/drive1/torrents) and the library (/mnt/drive1/Downloads/Soulseek)).
+services:
+    lidarr:
+        image: lscr.io/linuxserver/lidarr:latest
+        container_name: lidarr
+        restart: unless-stopped
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=America/New_York
+        volumes:
+            - type: bind
+              source: /mnt/drive1/appdata/lidarr
+              target: /config
+            - type: bind
+              source: /mnt/drive1
+              target: /mnt/drive1
+        ports:
+            - target: 8686
+              published: "8686"
+              protocol: tcp
+        x-casaos:
+            ports:
+                - container: "8686"
+                  description:
+                    en_us: Web UI
+            volumes:
+                - container: /config
+                  description:
+                    en_us: Lidarr config
+                - container: /mnt/drive1
+                  description:
+                    en_us: Library + downloads (drive1)
+x-casaos:
+    architectures:
+        - arm64
+    author: Self
+    category: Media
+    description:
+        en_us: Lidarr — music collection manager for Usenet/BitTorrent. Monitors artists/albums, grabs via Prowlarr indexers + qBittorrent, organizes into the library.
+    developer: Lidarr
+    icon: https://raw.githubusercontent.com/Lidarr/Lidarr/develop/Logo/256.png
+    index: /
+    is_uncontrolled: false
+    main: lidarr
+    port_map: "8686"
+    scheme: http
+    store_app_id: lidarr
+    tagline:
+        en_us: Music collection manager (*arr)
+    title:
+        custom: ""
+        en_us: Lidarr

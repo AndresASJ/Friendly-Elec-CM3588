@@ -172,6 +172,10 @@ existing pipeline (Prowlarr → qBittorrent/Gluetun → hardlink import) does th
 - **Defaults baked in**: Radarr profile `4` (HD-1080p), root `/mnt/drive1/movies`;
   Sonarr profile `7` (WEB-1080p), root `/mnt/drive2/shows`. Only 1080p profiles exist
   (no 4K) — Hermes is told to say so if asked.
+- **Music (Lidarr)** is wired the same way (`LIDARR_*` in `/opt/data/.env`, instructions
+  in `USER.md`): lookup artist → confirm → `POST /api/v1/artist` (or monitor a specific
+  album + `AlbumSearch`), root `/mnt/drive1/Downloads/Soulseek`, default profile Lossless.
+  See [`docs/18-lidarr.md`](18-lidarr.md).
 - **Guardrails**: confirm exact title/year before adding; one title per request; never
   delete media or change profiles/settings; report queue status after.
 
