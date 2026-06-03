@@ -45,6 +45,22 @@ floods Soulseek with hundreds of downloads. This stack is therefore run **reques
   album — see [`docs/17-hermes.md`](17-hermes.md). (Earlier `monitor:"all"` default caused a
   157-album flood; fixed 2026-06-03 — see that day's journal.)
 
+## Torrent music → straight into the library (flat album folders)
+
+The owner's library is a **flat pile of album folders** (Soulseek style), and Lidarr's default
+`Artist/Album/` reorganization clashed with it. So torrented music is configured to land as album
+folders directly in the library, matching Soulseek downloads:
+
+- qBittorrent's `lidarr` category `save_path` = `/mnt/drive1/Downloads/Soulseek` (downloads land in
+  the library and seed from there; partial files stay in `…/torrents/incomplete`).
+- Lidarr **Completed Download Handling is OFF** (`config/downloadclient`
+  `enableCompletedDownloadHandling=false`) — Lidarr still searches/grabs requested music but does
+  **not** move or reorganize it afterward. (Soularr does its own import and is unaffected.)
+- Trade-off: Lidarr no longer auto-tracks "have/missing" for torrent grabs and won't auto-remove
+  finished torrents — acceptable here since the owner browses the library folder directly.
+
+See the 2026-06-03 journal for the full rationale.
+
 ## Notes
 
 - **Soulseek (slskd)** is also wired now via the **Soularr** bridge — see
