@@ -1,0 +1,13 @@
+# rclone filter for the music -> Google Drive sync.
+# Exclude OS cruft, NAS metadata, and partial/temp files so only real music uploads.
+- .DS_Store
+- ._*
+- .AppleDouble/**
+- .Spotlight-V100/**
+- .Trashes/**
+- @eaDir/**
+- Thumbs.db
+- desktop.ini
+- *.partial
+- *.!qB
+- *.tmp
