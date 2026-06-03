@@ -46,4 +46,8 @@ services:
     volumes:
       - /mnt/drive1/AppData/slskd:/app
       - /mnt/drive1/Downloads/Soulseek:/downloads
+      # incomplete/partial downloads kept OUTSIDE the synced Soulseek folder
+      # (a Mac syncs /downloads to Google Drive; don't upload partials).
+      # Pair with slskd.yml: directories.incomplete: /incomplete
+      - /mnt/drive1/AppData/slskd-incomplete:/incomplete
     restart: unless-stopped
