@@ -158,6 +158,26 @@ The MCP bridge only exposes read + `activate_workflow`/`deactivate_workflow` —
 > guardrails. Tighten by reverting `tools.include` to read-only and removing the USER.md
 > n8n section if you want it locked down again.
 
+## Media downloads via Radarr + Sonarr (2026-06-03)
+
+Hermes can add movies/TV by text — it drives Radarr/Sonarr over their APIs, and the
+existing pipeline (Prowlarr → qBittorrent/Gluetun → hardlink import) does the rest.
+
+- **Creds**: Radarr (`:7878`) and Sonarr (`:8989`) URLs + API keys appended to
+  `/opt/data/.env` (`RADARR_*`, `SONARR_*`), read from each app's `config.xml` under
+  `/mnt/drive1/appdata/{radarr,sonarr}`. Header is `X-Api-Key`.
+- **Behavior** is defined by a section in `/opt/data/memories/USER.md`: lookup →
+  confirm match with owner → `POST /api/v3/movie` (or `/series`) with the default profile
+  + root folder + `searchForMovie`/`searchForMissingEpisodes`.
+- **Defaults baked in**: Radarr profile `4` (HD-1080p), root `/mnt/drive1/movies`;
+  Sonarr profile `7` (WEB-1080p), root `/mnt/drive2/shows`. Only 1080p profiles exist
+  (no 4K) — Hermes is told to say so if asked.
+- **Guardrails**: confirm exact title/year before adding; one title per request; never
+  delete media or change profiles/settings; report queue status after.
+
+> Same full-access-key caveat as n8n: the *arr API keys allow more than adding. Protection
+> is the owner-only Telegram allowlist + the USER.md guardrails.
+
 ## Gotchas (learned during install)
 
 - **CasaOS inlines `env_file` at install time.** `casaos-cli install` resolved the
