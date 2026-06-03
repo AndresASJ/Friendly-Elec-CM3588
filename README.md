@@ -56,6 +56,7 @@ Then follow the docs in order:
 | 16 | [Hardlinking migration](docs/16-hardlinking-migration-plan.md) | Planned mergerfs/hardlink fix |
 | 17 | [Hermes Agent](docs/17-hermes.md) | Self-hosted AI agent (Gemini 3.5 Flash) on Telegram |
 | 18 | [Lidarr](docs/18-lidarr.md) | Music *arr (artists/albums via Prowlarr + qBittorrent) |
+| 19 | [Soularr](docs/19-soularr.md) | Lidarr ↔ Soulseek (slskd) bridge |
 
 See [`journal/`](journal/) for a running daily log of changes.
 

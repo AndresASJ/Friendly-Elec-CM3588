@@ -35,7 +35,8 @@ casaos-cli app-management install -f compose/lidarr.yml
 
 ## Notes
 
-- **Soulseek (slskd) is separate** and not wired here — the **Soularr** bridge
-  (Lidarr → slskd) is deferred until the `gluetun-slskd` WireGuard VPN is fixed (dead
-  ~8 weeks; slskd offline). Torrent music works today via the healthy `gluetun-qbit`.
+- **Soulseek (slskd)** is also wired now via the **Soularr** bridge — see
+  [`docs/19-soularr.md`](19-soularr.md). (The `gluetun-slskd` VPN was dead ~8 weeks and was
+  fixed 2026-06-03; see that day's journal.) So Lidarr grabs music from **both** torrents
+  (Prowlarr + qBittorrent) and Soulseek.
 - Hermes can request music by text — see [`docs/17-hermes.md`](17-hermes.md) ("Music").

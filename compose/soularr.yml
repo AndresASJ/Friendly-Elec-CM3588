@@ -1,0 +1,59 @@
+name: soularr
+# Soularr — bridges Lidarr's missing/wanted list to slskd (Soulseek). On each interval it
+# reads Lidarr wanted albums, searches Soulseek via slskd, downloads, and triggers Lidarr
+# import. Config (with Lidarr + slskd API keys) lives in /mnt/drive1/AppData/soularr/config.ini
+# (git-ignored). slskd downloads land in /mnt/drive1/Downloads/Soulseek (= Lidarr root).
+services:
+    soularr:
+        image: mrusse08/soularr:latest
+        container_name: soularr
+        hostname: soularr
+        user: "1000:1000"
+        restart: unless-stopped
+        environment:
+            - TZ=America/New_York
+            - SCRIPT_INTERVAL=300
+            - WEBUI_ENABLED=true
+        ports:
+            - target: 8265
+              published: "8265"
+              protocol: tcp
+        volumes:
+            - type: bind
+              source: /mnt/drive1/Downloads/Soulseek
+              target: /downloads
+            - type: bind
+              source: /mnt/drive1/AppData/soularr
+              target: /data
+        x-casaos:
+            ports:
+                - container: "8265"
+                  description:
+                    en_us: Soularr web UI
+            volumes:
+                - container: /downloads
+                  description:
+                    en_us: slskd downloads (shared)
+                - container: /data
+                  description:
+                    en_us: Soularr config + logs
+x-casaos:
+    architectures:
+        - arm64
+    author: Self
+    category: Media
+    description:
+        en_us: Soularr — bridges Lidarr's wanted list to Soulseek (slskd). Searches and downloads missing albums from Soulseek, then triggers Lidarr import.
+    developer: mrusse
+    icon: https://raw.githubusercontent.com/mrusse/soularr/main/static/images/soularr.png
+    index: /
+    is_uncontrolled: false
+    main: soularr
+    port_map: "8265"
+    scheme: http
+    store_app_id: soularr
+    tagline:
+        en_us: Lidarr ↔ Soulseek bridge
+    title:
+        custom: ""
+        en_us: Soularr
