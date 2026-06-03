@@ -4,9 +4,14 @@
 # (Soulseek doesn't use NAT-PMP), so port forwarding is OFF — peers reach
 # you via outbound connections.
 #
-# Before deploying:
-#   1. Save your ProtonVPN WireGuard config at
-#      /mnt/drive1/AppData/gluetun-slskd/wg0.conf
+# Uses ProtonVPN *provider* mode (auto-selects a live US server) — NOT a custom
+# wg0.conf pinned to one server. (2026-06-03: the old custom config was pinned to a
+# dead server (146.70.202.18) and had been down ~8 weeks; switched to provider mode.)
+#
+# Before deploying, put your ProtonVPN WireGuard key + address in a git-ignored env file
+# at /mnt/drive1/AppData/gluetun-slskd/proton.env:
+#   WIREGUARD_PRIVATE_KEY=<from the Proton WireGuard config>
+#   WIREGUARD_ADDRESSES=10.2.0.2/32
 
 services:
   gluetun:
@@ -16,14 +21,16 @@ services:
       - NET_ADMIN
     environment:
       - TZ=America/New_York
-      - VPN_SERVICE_PROVIDER=custom
+      - VPN_SERVICE_PROVIDER=protonvpn
       - VPN_TYPE=wireguard
+      - SERVER_COUNTRIES=United States
+    env_file:
+      - /mnt/drive1/AppData/gluetun-slskd/proton.env
     ports:
       - "5032:5032/tcp"     # slskd web UI (LAN-accessible via gluetun)
       - "50300:50300/tcp"   # Soulseek peer port
     volumes:
       - /mnt/drive1/AppData/gluetun-slskd:/gluetun
-      - /mnt/drive1/AppData/gluetun-slskd/wg0.conf:/gluetun/wireguard/wg0.conf:ro
     restart: unless-stopped
 
   slskd:
