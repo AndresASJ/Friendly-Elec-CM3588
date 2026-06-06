@@ -81,9 +81,14 @@ STT/TTS engines, confirm nothing else depends on Nabu Casa, then cancel the subs
 
 - **Wake word:** add `wyoming-openwakeword` to the CasaOS stack (port 10400), register via
   Wyoming, select in the pipeline.
-- **Hermes via MCP:** expose Hermes' tools as an MCP server and add HA's MCP Client
-  integration, so a voice command can trigger agentic homelab jobs ("add a to-do",
-  "download X"). Hermes ships `mcp_serve.py`.
+- **Hermes reach (criterion 6) — needs a custom bridge, NOT the built-in MCP server.**
+  Investigated 2026-06-06: Hermes' `hermes mcp serve` is **stdio-only** and exposes *messaging
+  conversation history* as tools — not task execution. HA's MCP Client integration speaks
+  **SSE/HTTP**, so it can't talk to a stdio server, and conversation-history tools aren't what
+  we want anyway. To let a voice command trigger an agentic job ("add a to-do", "download X"),
+  use one of: (a) an HA `rest_command`/webhook → a small endpoint that messages Hermes; (b) an
+  n8n webhook that relays to Hermes; (c) a thin SSE-MCP shim wrapping a Hermes trigger. Deferred
+  until the core pipeline (Stages 2–4) is live.
 
 ## Done-when checklist
 
