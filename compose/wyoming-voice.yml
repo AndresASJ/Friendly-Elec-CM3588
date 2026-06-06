@@ -1,0 +1,73 @@
+name: wyoming-voice
+# Local STT + TTS for Home Assistant Assist, spoken over the Wyoming protocol.
+# Replaces Home Assistant Cloud (Nabu Casa) STT/TTS with on-box engines.
+# HA runs network_mode: host, so it reaches these at 127.0.0.1:10300 / :10200.
+services:
+    faster-whisper:
+        image: lscr.io/linuxserver/faster-whisper:latest
+        container_name: faster-whisper
+        restart: unless-stopped
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=America/New_York
+            - WHISPER_MODEL=base-int8   # CPU-friendly on RK3588; drop to tiny-int8 if slow
+            - WHISPER_LANG=en
+            - WHISPER_BEAM=1            # fastest; bump for marginally better accuracy
+        volumes:
+            - type: bind
+              source: /mnt/drive1/AppData/faster-whisper
+              target: /config
+        ports:
+            - "10300:10300"
+        x-casaos:
+            ports:
+                - container: "10300"
+                  description:
+                    en_us: Wyoming STT (speech-to-text)
+            volumes:
+                - container: /config
+                  description:
+                    en_us: Whisper model cache + config
+    piper:
+        image: lscr.io/linuxserver/piper:latest
+        container_name: piper
+        restart: unless-stopped
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=America/New_York
+            - PIPER_VOICE=en_US-lessac-medium
+        volumes:
+            - type: bind
+              source: /mnt/drive1/AppData/piper
+              target: /config
+        ports:
+            - "10200:10200"
+        x-casaos:
+            ports:
+                - container: "10200"
+                  description:
+                    en_us: Wyoming TTS (text-to-speech)
+            volumes:
+                - container: /config
+                  description:
+                    en_us: Piper voice models + config
+x-casaos:
+    architectures:
+        - arm64
+    author: Self
+    category: Smart Home
+    description:
+        en_us: Local speech-to-text (faster-whisper) and text-to-speech (Piper) for Home Assistant Assist, over the Wyoming protocol. On-box replacement for Nabu Casa cloud STT/TTS.
+    developer: Rhasspy / LinuxServer.io
+    icon: https://raw.githubusercontent.com/home-assistant/brands/master/core_integrations/wyoming/icon.png
+    main: faster-whisper
+    port_map: "10300"
+    scheme: http
+    store_app_id: wyoming-voice
+    tagline:
+        en_us: Local STT + TTS for Home Assistant
+    title:
+        custom: ""
+        en_us: Wyoming Voice (Whisper + Piper)
