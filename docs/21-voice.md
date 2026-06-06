@@ -40,6 +40,10 @@ Both run as one CasaOS stack, [`compose/wyoming-voice.yml`](../compose/wyoming-v
 - Data: `/mnt/drive1/AppData/{faster-whisper,piper}` → `/config` (model caches).
 - HA is `network_mode: host`, so it reaches both at `127.0.0.1`. Verified "Ready" + ports
   listening. If Whisper feels slow on the RK3588, drop `WHISPER_MODEL` to `tiny-int8`.
+- **End-to-end verified (2026-06-06):** a Piper→Whisper round-trip over the Wyoming protocol
+  transcribed a test sentence **verbatim** — Piper TTS 3.2s, Whisper STT **1.7s** on the
+  RK3588. `base-int8` is accurate and fast enough; no need to drop to tiny. (Test client:
+  `/tmp/wyoming_roundtrip.py`.) So the engines are proven before any HA wiring.
 
 ## STAGE 2 — wire into HA  ⏳ (needs the HA UI — owner step)
 
