@@ -203,8 +203,46 @@ existing pipeline (Prowlarr → qBittorrent/Gluetun → hardlink import) does th
 > Same full-access-key caveat as n8n: the *arr API keys allow more than adding. Protection
 > is the owner-only Telegram allowlist + the USER.md guardrails.
 
+## Agent brain: persona, memory & request routing (2026-06-06)
+
+How Hermes decides what to do lives in three files under `/opt/data`, all owned **uid
+10000** (the runtime user) — edit as root and you must `chown 10000:10000` after, or the
+agent silently can't read them (see gotcha below).
+
+- **`SOUL.md`** — persona/tone, reloaded **fresh every message** (no restart). Sets a
+  concise, direct, bias-to-action voice and the standing rules: route every media/task
+  request through the homelab stack; never scrape search engines, solve CAPTCHAs, or refuse
+  media on copyright grounds; report outcomes honestly (no fake success).
+- **`memories/USER.md`** — the **hand-authored homelab playbook** (routing table + per-service
+  API instructions for n8n / Radarr / Sonarr / Lidarr / Todoist + guardrails). Injected into
+  the system prompt as a frozen snapshot at **session start**. It's far over the memory tool's
+  size limit and not `§`-formatted, so the tool **can't auto-edit it** — that's intentional;
+  it's maintained by hand.
+- **`memories/MEMORY.md`** — the agent's **own writable** self-curated store (short
+  `§`-delimited entries, ≤2200 chars). This is where Hermes persists things it learns. A note
+  atop USER.md points its self-curation here so it never tries (and fails) to rewrite USER.md.
+
+**Request routing** is the top section of USER.md: a bare request → the right service (movie →
+Radarr, show → Sonarr, album/song → Lidarr, to-do → Todoist). For an ambiguous title it queries
+both Radarr and Sonarr `lookup` and confirms before adding.
+
+**Todoist** (2026-06-06): Hermes drives the Todoist v1 API directly —
+`Authorization: Bearer $TODOIST_API_TOKEN` (in `/opt/data/.env`; **never** committed or echoed).
+Due dates via natural-language `due_string`; tasks filed into the owner's sections
+(Kord/Blog/Church/Coding/Routines). Reports the API response literally (no inventing success).
+The old n8n `things-import` webhook silently dropped due dates — superseded by the direct API.
+> ⚠️ The token currently in `.env` is the same account-wide token that's **hardcoded in the n8n
+> "Things → Todoist Import" workflow JS** and leaked into old chat logs. It should be **rotated**
+> and moved into an n8n credential — but rotating touches `flac-sync` + the n8n flows too.
+
 ## Gotchas (learned during install)
 
+- **Memory/config files must stay uid-10000 readable.** The runtime is **uid 10000**;
+  anything under `/opt/data` edited *as root* becomes `root:root` and the agent can't read
+  it. For `config.yaml` it silently falls back to defaults; for `memories/USER.md` the agent
+  loses all homelab knowledge (scrapes the web, "sonarr not installed"). Always
+  `chown 10000:10000 <file> && chmod 640` after a root edit. (Bit us twice: config.yaml, then
+  USER.md on 2026-06-06.)
 - **CasaOS inlines `env_file` at install time.** `casaos-cli install` resolved the
   `env_file:` into literal `environment:` entries in
   `/var/lib/casaos/apps/hermes/docker-compose.yml`. So editing `hermes.env` alone does
