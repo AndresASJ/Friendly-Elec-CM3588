@@ -94,14 +94,35 @@ STT/TTS engines, confirm nothing else depends on Nabu Casa, then cancel the subs
   n8n webhook that relays to Hermes; (c) a thin SSE-MCP shim wrapping a Hermes trigger. Deferred
   until the core pipeline (Stages 2–4) is live.
 
+## Progress note (2026-06-06, driven via HA API)
+
+Reset the `andres` HA password (owner-authorized) and logged into HA's API programmatically
+(login_flow → token at `/root/.config/ha.token`). Then, all via API:
+
+- **Added** faster-whisper + piper as **Wyoming** integrations (both `loaded`).
+- **Added** the **Google Generative AI** integration (existing `GEMINI_API_KEY`); the
+  `conversation.google_ai_conversation` agent answers Q&A (verified: "capital of France" → "Paris").
+- **Created** the Assist pipeline **"Local Voice (Whisper+Gemini+Piper)"** (stt.faster_whisper →
+  conversation.google_ai_conversation → tts.piper / en_US-lessac-medium) and **set it preferred** —
+  so the active pipeline no longer touches Nabu Casa.
+
+**Remaining = quick UI toggles** (owner can now log in: user `andres`, pw was reset — change it):
+1. **Enable device control on Gemini** (unlocks criterion 3): Settings → Devices & Services →
+   *Google Generative AI* → the *Google AI Conversation* entry → **Configure** → set **Control
+   Home Assistant = Assist** (and confirm a **Flash** model / "prefer handling commands locally").
+   This is a subentry option not exposed over the API in this HA version.
+2. **Wake word + View Assist** on the Show → point it at the **Local Voice** pipeline.
+3. **Cancel Nabu Casa** once happy (active pipeline is already off cloud STT/TTS).
+
 ## Done-when checklist
 
 - [x] **1. Local STT/TTS live** — faster-whisper :10300 + piper :10200 running, models loaded.
-- [ ] **1b.** Both added to HA via the Wyoming integration (Stage 2a — owner).
-- [ ] **2. Brain = Gemini Flash** — Google Generative AI agent, local-first, key + spend cap (Stage 2b — owner).
-- [ ] **3. Smart-home control by voice** — WiZ lights + Music Assistant respond, local/fast.
-- [ ] **4. General Q&A** — answered via Gemini.
-- [ ] **5. Hands-free on the Show** — wake word → Assist → spoken reply (Stages 3 + 5).
+- [x] **1b.** Both added to HA via the Wyoming integration (both `loaded`).
+- [~] **2. Brain = Gemini Flash** — agent added + in the pipeline; **device-control toggle pending**
+  (UI step 1 above); set a spend cap on the key.
+- [ ] **3. Smart-home control by voice** — unlocks once Gemini control is enabled (UI step 1).
+- [x] **4. General Q&A** — verified via Gemini.
+- [ ] **5. Hands-free on the Show** — wake word → Assist → spoken reply (UI steps 2).
 - [ ] **6. Homelab reach (stretch)** — an agentic task routed to Hermes via MCP.
-- [ ] **7. Subscription killed** — Nabu Casa STT/TTS decommissioned, sub cancelled.
+- [~] **7. Subscription killed** — Nabu Casa out of the active pipeline; sub cancellation = owner.
 - [x] **8. Documented + pushed** — this doc + journal; `wyoming-voice` in CasaOS.
