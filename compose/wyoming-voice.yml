@@ -37,7 +37,7 @@ services:
             - PUID=1000
             - PGID=1000
             - TZ=America/New_York
-            - PIPER_VOICE=en_US-lessac-medium
+            - PIPER_VOICE=en_GB-jenny_dioco-medium
         volumes:
             - type: bind
               source: /mnt/drive1/AppData/piper
