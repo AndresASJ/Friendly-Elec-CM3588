@@ -114,6 +114,38 @@ Reset the `andres` HA password (owner-authorized) and logged into HA's API progr
 2. **Wake word + View Assist** on the Show → point it at the **Local Voice** pipeline.
 3. **Cancel Nabu Casa** once happy (active pipeline is already off cloud STT/TTS).
 
+## Follow-Up Mode (chain commands without re-saying the wake word)
+
+Like Alexa Follow-Up Mode: after the assistant answers, the mic silently re-opens so the
+next command needs no wake word. Built as an HA automation (`automations.yaml`, id
+`voice_follow_up_mode`) — **toggle it off in Settings → Automations to disable**.
+
+Key trick: `assist_satellite.start_conversation` with an **empty message** + `preannounce:
+false` silently re-arms the mic. Triggered on the satellite going `responding → idle`.
+Self-terminating: if you say nothing, the open mic times out from `listening` (never
+`responding`), so it doesn't re-fire.
+
+```yaml
+- id: voice_follow_up_mode
+  alias: Voice - Follow-Up Mode (no wake word for next command)
+  triggers:
+  - trigger: state
+    entity_id: assist_satellite.vaca_de0acdae6
+    from: responding
+    to: idle
+  actions:
+  - action: assist_satellite.start_conversation
+    target:
+      entity_id: assist_satellite.vaca_de0acdae6
+    data:
+      start_message: ""
+      preannounce: false
+  mode: single
+```
+
+> Note: HA's built-in `continue_conversation` only re-listens when the reply ends in "?"
+> (clarifications), so it isn't enough for chaining plain commands — hence this automation.
+
 ## Done-when checklist
 
 - [x] **1. Local STT/TTS live** — faster-whisper :10300 + piper :10200 running, models loaded.
