@@ -43,6 +43,10 @@ services:
     environment:
       - TZ=America/New_York
       - SLSKD_REMOTE_CONFIGURATION=true
+      # Web UI runs on 5032 (set in slskd.yml). The slskd image's baked healthcheck
+      # probes http://localhost:${SLSKD_HTTP_PORT}/health, defaulting to 5030, so the
+      # container reported "unhealthy" forever despite slskd being fine. Pin to 5032.
+      - SLSKD_HTTP_PORT=5032
     volumes:
       - /mnt/drive1/AppData/slskd:/app
       - /mnt/drive1/Downloads/Soulseek:/downloads
