@@ -43,6 +43,26 @@ Common gotchas, in roughly the order you'll hit them.
 - In Cloudflare Zero Trust dashboard → Tunnels → your tunnel → Public Hostnames — verify the service URL is `http://<homelab-lan-ip>:<port>` (not container name, not `localhost`)
 - Test: `curl -I http://192.168.50.178:8096` from the homelab itself
 
+## Service works on cellular but shows "You are offline" at home (split-DNS)
+
+**Symptom:** A web app (e.g. Jellyseerr at `jellyseerr.asj.media`) loads fine on cellular / away from home, but on the home Wi-Fi it shows "You are offline" or won't load. Hitting the raw `http://192.168.50.178:<port>` works.
+
+**Cause:** Split-horizon DNS mismatch. The service has a **Cloudflare Tunnel public hostname** (so the off-LAN path works), but **no matching proxy host in Nginx Proxy Manager**. At home, AdGuard's wildcard rewrite `*.asj.media → 192.168.50.178` sends every `*.asj.media` name to NPM — and if NPM has no entry for that hostname, the request lands nowhere. The result is a hostname that resolves on cellular (public Cloudflare IP → tunnel) but dead-ends at home (AdGuard → NPM → no host).
+
+**Diagnose:**
+```bash
+# 1. App itself healthy?
+curl -s -o /dev/null -w "%{http_code}\n" http://192.168.50.178:5055/api/v1/status   # 200 = app fine
+# 2. Does NPM have the host? (list server_names)
+docker exec nginxproxymanager sh -c 'grep -h server_name /data/nginx/proxy_host/*.conf'
+# 3. Does the proxy path work end-to-end? (real Host header)
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: jellyseerr.asj.media" http://192.168.50.178/api/v1/status
+```
+
+**Fix:** Add the missing proxy host in NPM (`http://192.168.50.178:81` → Hosts → Proxy Hosts → Add): domain = the hostname, scheme `http`, forward IP `192.168.50.178`, the service port, Websockets ✅. SSL can stay off — Cloudflare terminates TLS at the edge and the LAN path is plain HTTP (all hosts here listen on :80 only). See [`docs/04-networking.md`](04-networking.md#add-a-proxy-host).
+
+> Rule of thumb: **every Cloudflare Tunnel public hostname needs a matching NPM proxy host** (or an AdGuard rewrite exception), or it'll work remotely but break at home.
+
 ## Immich uploads time out on large videos
 
 **Cause:** Cloudflare's default 100 MB upload limit, or chunked encoding being re-buffered.

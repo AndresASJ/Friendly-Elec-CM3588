@@ -31,3 +31,4 @@ Anything that broke, surprised, or needed a workaround.
 ## Index
 
 - [2026-05-28 — Repo rewrite + journal kickoff](2026-05-28.md)
+- [2026-06-21 — Jellyseerr "offline" at home: missing NPM proxy host (split-DNS)](2026-06-21.md)

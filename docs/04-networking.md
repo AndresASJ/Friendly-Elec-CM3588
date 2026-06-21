@@ -86,6 +86,8 @@ For each service:
 
 > **Why LAN IP, not container name?** NPM and each app run in different Docker networks. Using the host's LAN IP is the simplest cross-network path. If you'd rather use container names, attach NPM to each app's network (more brittle).
 
+> **Every Cloudflare-Tunnel hostname also needs a proxy host here.** Because AdGuard's wildcard sends all `*.asj.media` to NPM, a service that only has a Cloudflare public hostname (but no NPM entry) will work off-LAN yet fail at home with "You are offline." See [Troubleshooting → split-DNS](14-troubleshooting.md#service-works-on-cellular-but-shows-you-are-offline-at-home-split-dns). Current proxy hosts: `jellyfin` (8096), `jellyseerr` (5055), `photos` (2283), `drive` (7777), `adguard` (3000), `n8n` (5678), `obsidian` (3010), `homeassistant` (8123), `tailscale` (5252), `cloudflared` (14333), `writes`/Ghost (2368), `asj.media` root (8080).
+
 See [`compose/nginx-proxy-manager.yml`](../compose/nginx-proxy-manager.yml).
 
 ---
