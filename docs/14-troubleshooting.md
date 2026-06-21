@@ -59,7 +59,11 @@ docker exec nginxproxymanager sh -c 'grep -h server_name /data/nginx/proxy_host/
 curl -s -o /dev/null -w "%{http_code}\n" -H "Host: jellyseerr.asj.media" http://192.168.50.178/api/v1/status
 ```
 
-**Fix:** Add the missing proxy host in NPM (`http://192.168.50.178:81` → Hosts → Proxy Hosts → Add): domain = the hostname, scheme `http`, forward IP `192.168.50.178`, the service port, Websockets ✅. SSL can stay off — Cloudflare terminates TLS at the edge and the LAN path is plain HTTP (all hosts here listen on :80 only). See [`docs/04-networking.md`](04-networking.md#add-a-proxy-host).
+**Fix:** Add the missing proxy host in NPM (`http://192.168.50.178:81` → Hosts → Proxy Hosts → Add): domain = the hostname, scheme `http`, forward IP `192.168.50.178`, the service port, Websockets ✅.
+
+**HTTPS at home needs a cert in NPM.** NPM hosts listen on `:80` only *unless* you give them a Let's Encrypt cert. Cloudflare's edge cert only covers the *tunnel* (off-LAN) path — so if you browse `https://host.asj.media` at home, AdGuard sends you to NPM, which has no cert for that name and the TLS handshake fails (the app then shows "offline"). Two options:
+- **http only at home:** access `http://host.asj.media` (NPM redirects nothing; works but no TLS on-LAN).
+- **https at home (preferred):** in the host's **SSL** tab → *Request a new SSL Certificate* → **DNS Challenge → Cloudflare**, paste the Cloudflare API token (same token obsidian/tailscale/jellyseerr use), enable **Force SSL**. This issues a real cert via DNS-01 and adds a `:443` listener, so it works identically on-LAN and off. See [`docs/04-networking.md`](04-networking.md#add-a-proxy-host).
 
 > Rule of thumb: **every Cloudflare Tunnel public hostname needs a matching NPM proxy host** (or an AdGuard rewrite exception), or it'll work remotely but break at home.
 
