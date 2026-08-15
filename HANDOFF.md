@@ -35,6 +35,11 @@ than anything else on this page (see §6).
 Docker's data-root is `/mnt/drive1/docker` and containerd's store is
 `/mnt/drive1/containerd` (both moved off eMMC on 2026-06-21 after it filled).
 
+> 🚧 **These numbers are actively changing — storage work is underway as of
+> 2026-08-15.** drive1 at 96% and the hardlinking fix are being addressed now
+> (see §8). Re-run `df -h` rather than trusting this table, and check the latest
+> [`journal/`](journal/) entry before acting on it.
+
 ## 2. Services
 
 **38 containers, all managed as CasaOS apps** (`/var/lib/casaos/apps/<name>/docker-compose.yml`).
@@ -188,3 +193,11 @@ Read [`TODO.md`](TODO.md). The top two items — drive1 at 96% and the unexecute
 hardlinking migration — are the same problem, and it is the one thing on this box
 that is actively getting worse (`torrents/complete` went 351 GB → 1.1 TB between
 June and August). Everything else is stable.
+
+> 🚧 **In progress as of 2026-08-15 — storage is being addressed now.** The owner
+> has given the go-ahead to take on the drive1 / hardlinking problem in this
+> stretch, so treat items 1 and 2 in [`TODO.md`](TODO.md) as *active work*, not
+> backlog. If you are picking this up mid-flight, check the newest entry in
+> [`journal/`](journal/) before touching drive1, mount points, or any library
+> path — the mergerfs migration in [`docs/16`](docs/16-hardlinking-migration-plan.md)
+> moves library trees, so a stale mental model here is expensive.
