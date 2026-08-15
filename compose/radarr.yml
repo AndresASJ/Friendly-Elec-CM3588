@@ -1,22 +1,56 @@
-# Radarr — movie manager
-#
-# Mounts all drives where movie files live so hardlinks with qBittorrent
-# work across drives.
-
 name: radarr
 services:
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      PUID: "1000"
-      PGID: "1000"
-      TZ: America/New_York
-    ports:
-      - "7878:7878/tcp"
-    volumes:
-      - /mnt/drive1/appdata/radarr:/config
-      - /mnt/drive1:/mnt/drive1
-      - /mnt/drive3:/mnt/drive3
-      - /mnt/drive4:/mnt/drive4
-    restart: unless-stopped
+    radarr:
+        cpu_shares: 90
+        command: []
+        container_name: radarr
+        deploy:
+            resources:
+                limits:
+                    memory: "16733175808"
+        environment:
+            PGID: "1000"
+            PUID: "1000"
+            TZ: America/New_York
+        hostname: radarr
+        image: lscr.io/linuxserver/radarr:latest
+        labels:
+            icon: https://icon.casaos.io/main/all/radarr.png
+        network_mode: bridge
+        ports:
+            - target: 7878
+              published: "7878"
+              protocol: tcp
+        restart: unless-stopped
+        volumes:
+            - type: bind
+              source: /mnt/drive1/appdata/radarr
+              target: /config
+            - type: bind
+              source: /mnt/drive1
+              target: /mnt/drive1
+            - type: bind
+              source: /mnt/drive3
+              target: /mnt/drive3
+            - type: bind
+              source: /mnt/drive4
+              target: /mnt/drive4
+            - type: bind
+              source: /mnt/toshiba
+              target: /mnt/toshiba
+networks:
+    default:
+        name: radarr_default
+x-casaos:
+    author: self
+    category: self
+    hostname: ""
+    icon: https://icon.casaos.io/main/all/radarr.png
+    index: /
+    is_uncontrolled: false
+    port_map: "7878"
+    scheme: http
+    store_app_id: radarr
+    title:
+        custom: ""
+        en_us: radarr
