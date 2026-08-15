@@ -1,5 +1,10 @@
 # Handoff — n8n automation + Todoist/contacts (as of 2026-05-31)
 
+> **Scope: this subsystem only.** For the current whole-system handoff see
+> [`../HANDOFF.md`](../HANDOFF.md). The §5 gotchas below are still accurate and
+> valuable — **§6 "Open items" is stale** (drive2 was rebalanced and is now at 77%);
+> use [`../TODO.md`](../TODO.md) for the live list.
+
 Everything built in this stretch, where it lives, how to operate it, and what's
 still open. Full narrative is in `journal/2026-05-29.md` and `journal/2026-05-31.md`;
 service details in `docs/15-n8n.md`.

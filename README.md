@@ -4,6 +4,11 @@ A complete, reproducible self-hosted stack running on a FriendlyElec CM5388 sing
 
 This repo is a living blueprint. It contains the exact (sanitized) compose files and configs running on the host, plus step-by-step docs so anyone can rebuild the same setup from scratch.
 
+> **Running this box?** Start with **[HANDOFF.md](HANDOFF.md)** — current system
+> state, verification commands, and the traps worth not rediscovering.
+> Then **[TODO.md](TODO.md)** for what's open, and **[CHANGELOG.md](CHANGELOG.md)**
+> for how it got here.
+
 ---
 
 ## What you get
