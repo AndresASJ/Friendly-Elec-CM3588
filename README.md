@@ -11,7 +11,7 @@ This repo is a living blueprint. It contains the exact (sanitized) compose files
 - 📺 **Media server** — Jellyfin + Plex, fed by the *arr stack (Sonarr / Radarr / Prowlarr)
 - 📥 **VPN-routed downloads** — qBittorrent + slskd, both forced through ProtonVPN WireGuard via Gluetun (kill-switched)
 - 📸 **Photos** — Immich for phone backup, face/object search, multi-user
-- 🎵 **Music** — Music Assistant + PlexAmp + Last.fm scrobbling
+- 🎵 **Music** — Music Assistant + Last.fm scrobbling
 - 🏠 **Home automation** — Home Assistant
 - ☁️ **Personal cloud** — Seafile with MariaDB + Memcached
 - 📝 **Blog** — Ghost on MySQL
@@ -45,7 +45,7 @@ Then follow the docs in order:
 | 05 | [Media stack](docs/05-media-stack.md) | Jellyfin, Plex, Sonarr, Radarr, Prowlarr, Jellyseerr |
 | 06 | [Downloads + VPN](docs/06-downloads-vpn.md) | qBittorrent + slskd routed through Gluetun |
 | 07 | [Immich (photos)](docs/07-immich.md) | Full Immich stack with hardware transcoding |
-| 08 | [Music](docs/08-music.md) | Music Assistant, PlexAmp, kord-lastfm |
+| 08 | [Music](docs/08-music.md) | Music Assistant, kord-lastfm |
 | 09 | [Home Assistant](docs/09-home-assistant.md) | HA in Docker (not HAOS) |
 | 10 | [Seafile](docs/10-seafile.md) | Self-hosted file sync |
 | 11 | [Ghost blog](docs/11-ghost.md) | Ghost + MySQL behind NPM |

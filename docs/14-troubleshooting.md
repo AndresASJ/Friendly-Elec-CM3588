@@ -119,6 +119,28 @@ Either change the port in the new app's compose, or stop the other thing.
 3. `docker compose up -d --force-recreate plex`
 4. The token is single-use and expires in 4 minutes — claim and recreate quickly
 
+> A container in this state **never recovers on its own** — `restart: unless-stopped`
+> just retries forever. PlexAmp racked up 61,969 restarts over five months this way
+> before anyone noticed (removed 2026-08-15). Worth periodically running
+> `docker ps -a --format '{{.Names}} {{.Status}}' | grep -i restarting` — or checking
+> restart counts directly:
+>
+> ```bash
+> docker ps -a --format '{{.Names}}' | while read c; do
+>   printf '%s %s\n' "$c" "$(docker inspect -f '{{.RestartCount}}' "$c")"
+> done | sort -k2 -rn | head
+> ```
+
+## Gluetun says `healthy` but qBittorrent downloads nothing
+
+**Cause:** the port-forwarding loop wedged while the tunnel stayed up. Gluetun's
+healthcheck only tests outbound reachability, so the container stays green and
+`HEALTH_RESTART_VPN=on` never fires.
+
+**Fix:** `docker restart gluetun-qbit`, wait for healthy, then `docker restart
+qbittorrent`. Full detail, signature logs and verification steps in
+[docs/06-downloads-vpn.md](06-downloads-vpn.md#failure-mode-wedged-nat-pmp-gluetun-stays-healthy).
+
 ## Home Assistant can't see new Wi-Fi devices
 
 **Cause:** Container is on a bridge network instead of host networking.

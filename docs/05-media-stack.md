@@ -12,7 +12,7 @@ The classic "*arr stack" — automatic media library management.
 | **Jellyseerr** | Request UI for users (fork of Overseerr with Jellyfin support) | 5055 |
 | **FlareSolverr** | Headless browser that bypasses Cloudflare on indexer sites | 8191 |
 | **Jellyfin** | Primary media server | 8096 |
-| **Plex** | Secondary media server (kept for PlexAmp users) | host network |
+| **Plex** | Secondary media server | host network |
 | **Unpackerr** | Auto-extracts RAR archives from completed downloads | — |
 | **Recyclarr** | Syncs quality profiles from TRaSH Guides (see [docs/12](12-recyclarr.md)) | — |
 

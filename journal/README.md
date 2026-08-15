@@ -32,3 +32,4 @@ Anything that broke, surprised, or needed a workaround.
 
 - [2026-05-28 — Repo rewrite + journal kickoff](2026-05-28.md)
 - [2026-06-21 — Jellyseerr "offline" at home: missing NPM proxy host (split-DNS)](2026-06-21.md)
+- [2026-08-15 — Silent qBit VPN death (wedged NAT-PMP) + PlexAmp removed](2026-08-15.md)

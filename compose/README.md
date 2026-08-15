@@ -48,7 +48,7 @@ For files referencing `configs/*.example`, copy the example file to its real pat
 | `plex.yml` | Plex | host | Secondary media server |
 | `jellyseerr.yml` | Jellyseerr | 5055 | Request UI |
 | `music-assistant.yml` | Music Assistant | host | Music aggregator |
-| `plexamp.yml` | PlexAmp | host | Headless music player |
+| `plexamp.yml` | PlexAmp | host | Headless music player — **removed 2026-08-15, unused** |
 | `kord-lastfm.yml` | kord-lastfm | 8787 | Last.fm scrobble bridge |
 | `immich.yml` | Immich (4 containers) | 2283 | Photos |
 | `seafile.yml` | Seafile (3 containers) | 7777 | File sync |

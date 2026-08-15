@@ -8,7 +8,7 @@ The music side runs separately from Sonarr/Radarr. Music sourcing uses **slskd**
 |---------|---------|------|
 | **slskd** | Soulseek client (behind Gluetun — see [docs/06](06-downloads-vpn.md)) | 5032 |
 | **Music Assistant** | Server that aggregates local + streaming music | — |
-| **PlexAmp** | Plex-native music player (headless container for casting to speakers) | — |
+| **PlexAmp** | ~~Plex-native music player~~ — **removed 2026-08-15, unused** | — |
 | **kord-lastfm** | Lightweight Last.fm scrobbling bridge | 8787 |
 
 ## Music Assistant
@@ -23,13 +23,26 @@ On first launch, add music providers via the UI. Add **Plex** or **Jellyfin** as
 
 ## Plex + PlexAmp
 
+> **PlexAmp was removed 2026-08-15 — unused.** It had been crash-looping since it
+> was deployed on 2026-03-10 (61,969 restarts) because it was created with an empty
+> `PLEXAMP_CLAIM_TOKEN` and never completed first-start auth. Rather than re-claim a
+> player nobody used, the CasaOS app was taken down and
+> `/var/lib/casaos/apps/plexamp/` deleted. Leftover config at `/DATA/AppData/plexamp`
+> (64K) is inert. [`compose/plexamp.yml`](../compose/plexamp.yml) is kept for
+> reference if it's ever wanted back. Plex itself is untouched and still running.
+
 PlexAmp is Plex's high-end music player. Running a headless instance on the homelab lets it cast to any UPnP/Cast/AirPlay speaker on the network.
 
 [`compose/plexamp.yml`](../compose/plexamp.yml).
 
 After the container starts, get the claim token from `plex.tv/claim`, paste it in the PlexAmp container logs URL, then it self-registers to your Plex server.
 
-> **If PlexAmp keeps restarting:** it's almost always a Plex token issue. Re-claim via `plex.tv/claim` and restart.
+> **If PlexAmp keeps restarting:** it's almost always a Plex token issue. The claim
+> token is **single-use and expires 4 minutes** after you generate it, so it must be
+> pasted into the compose file and the container recreated within that window. A
+> blank or stale token means it can never come up — it will loop roughly every 55
+> seconds forever, since `restart: unless-stopped` keeps retrying a state that
+> cannot self-heal.
 
 ## kord-lastfm — scrobble bridge
 

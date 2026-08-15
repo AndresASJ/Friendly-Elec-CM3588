@@ -189,6 +189,58 @@ It flags DOWN when qBit `connection_status` != `connected` OR `listen_port` == 0
 Bot token + chat id live in `/root/.config/vpn-alert/telegram.cred` (chmod 600, **not**
 in the repo — the script reads them at runtime).
 
+### Failure mode: wedged NAT-PMP (gluetun stays `healthy`)
+
+**Seen 2026-08-12, caught 2026-08-15 after ~3 days of zero traffic.**
+
+Gluetun's container healthcheck only proves the *tunnel* carries traffic
+(`HEALTH_TARGET_ADDRESSES=cloudflare.com:443,github.com:443`). Port forwarding runs
+in a **separate loop that can die on its own** — when it does, gluetun keeps
+reporting `healthy`, `HEALTH_RESTART_VPN=on` does not fire, and nothing self-heals.
+
+Signature in `docker logs gluetun-qbit`:
+
+```
+ERROR [port forwarding] adding port mapping: executing remote procedure call:
+  reading from udp connection: read udp 10.2.0.2:42861->10.2.0.1:5351: recvfrom: connection refused
+INFO  [port forwarding] starting        <-- and then NOTHING, ever again
+```
+
+Confirm it:
+
+```bash
+docker exec gluetun-qbit cat /tmp/gluetun/forwarded_port   # 0 bytes = wedged
+docker exec qbittorrent curl -s http://127.0.0.1:8090/api/v2/transfer/info
+# firewalled + dht_nodes:0 + 0 B/s == dead
+```
+
+Fix — restart the tunnel, **then** qBit (it shares gluetun's netns, so it loses
+networking when gluetun restarts and needs its own restart to recover):
+
+```bash
+docker restart gluetun-qbit
+# wait for healthy (~30s), then:
+docker restart qbittorrent
+```
+
+Verify `listen_port` matches the new forwarded port:
+
+```bash
+docker exec gluetun-qbit cat /tmp/gluetun/forwarded_port
+docker exec qbittorrent curl -s http://127.0.0.1:8090/api/v2/app/preferences | grep -o '"listen_port":[0-9]*'
+```
+
+> **Don't be fooled by the port-push errors.** Both `qbit-port-forward.sh` and the
+> `*/5` cron `update-port.sh` log `setPreferences ... [1]` or `Connection refused`
+> whenever they fire while qBit's WebUI isn't listening yet — normal startup
+> ordering, not a bug. qBit runs with `bypass_local_auth: true`, so localhost calls
+> need no credentials. Both were verified working 2026-08-15.
+
+**Limitation of the alerting:** the script alerts on *transition only*. It fired once
+on 08-12, then logged `status=DOWN prev=DOWN` every 5 min for three days in silence.
+One missed Telegram message = unbounded downtime. Consider a re-alert every N
+consecutive DOWN checks, or auto-restart on sustained DOWN.
+
 ## Private-tracker "download slot limit" (ratio standing)
 
 seedpool (and other UNIT3D trackers) cap how many torrents your account may **leech at
