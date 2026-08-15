@@ -20,11 +20,18 @@ to the journal for the full narrative and to the relevant doc for how it works n
   downloads went from 0 B/s to ~33 MB/s down. ([journal](journal/2026-08-15.md) ·
   [docs/06](docs/06-downloads-vpn.md))
 
+### Added
+- **Toshiba USB HDD wired up as overflow storage** — created directory structure on
+  `/mnt/toshiba` (1.7 TB free) and added volume mounts + root folders to Sonarr,
+  Radarr, Lidarr, and Immich. Jellyfin already had access via `/mnt:/mnt`. Toshiba
+  stays **outside** the future mergerfs pool (USB disconnect risk).
+  ([journal](journal/2026-08-15.md))
+
 ### Removed
-- **PlexAmp** — deployed 2026-03-10 with an empty `PLEXAMP_CLAIM_TOKEN`, so it never
-  completed first-start auth and had crash-looped **61,969 times** since. Unused, so
-  removed rather than re-claimed. Plex itself untouched.
-  ([docs/08](docs/08-music.md))
+- **PlexAmp** — deployed 2026-03-10 with an empty `PLEXAMP_CLAIM_TOKEN`, crash-looped
+  **61,969 times**. Unused, removed.
+- **Plex** — unused (Jellyfin + Infuse on Apple TV is the only media stack). Container
+  removed, CasaOS app deleted. Appdata (83 MB) left at `/DATA/AppData/plex`.
 
 ### Documentation
 - Documented the wedged-NAT-PMP failure mode, its signature logs, and the recovery
@@ -33,6 +40,9 @@ to the journal for the full narrative and to the relevant doc for how it works n
   `setPreferences ... [1]` when firing before qBit's WebUI is listening. Both
   verified working.
 - Added `TODO.md`, `CHANGELOG.md`, and a whole-system `HANDOFF.md`.
+- Updated `HANDOFF.md` with storage migration plan: Immich photos → toshiba, then
+  mergerfs over NVMe drives only, then RAID in ~2 years (same mount path, zero
+  app reconfiguration on transition).
 - Fixed the stale git remote (`Friendly-Elec-CM5388` → `Friendly-Elec-CM3588`).
 
 ## 2026-07-17

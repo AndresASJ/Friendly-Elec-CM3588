@@ -8,58 +8,41 @@ Status key: 🔴 urgent · 🟠 should do · 🟡 nice to have · ⏸️ deferre
 
 ---
 
-## 🔴 1. drive1 is at 96% (83 GB free)
+## 🔴 1. Move Immich photos to toshiba (immediate drive1 relief)
 
-`drive1` is simultaneously the Docker data-root, the containerd image store, and
-1.1 TB of torrents. This is structurally the same setup that caused the June eMMC
-fill, just on a bigger disk — and when it fills, Docker starts failing writes
-across every service at once.
+Immich's 166 GB photo library sits on drive1 at 97%. Moving it to `/mnt/toshiba/photos`
+drops drive1 to ~88%. The move is clean: Immich's volume mount maps the host path to
+`/usr/src/app/upload`, so all DB paths are relative — just stop Immich, rsync, swap
+the mount source, start Immich.
 
-```
-drive1  1.8T  1.7T   83G  96%   <-- docker + containerd + 1.1T torrents
-drive3  1.9T  1.7T  133G  93%
-drive4  1.9T  1.4T  358G  80%
-drive2  1.9T  1.4T  418G  77%
-toshiba 1.8T   52G  1.7T   3%   <-- 1.7 TB free, barely used
-```
+The Toshiba external library and volume mount are already configured (done 2026-08-15).
 
-Not a standalone problem — it is mostly caused by item 2. Fixing the hardlinking
-topology is what actually reclaims the space; moving data is the stopgap.
-
-- [ ] Decide the stopgap: what moves to the Toshiba (1.7 TB free) to buy headroom
+- [ ] Stop Immich stack
+- [ ] `rsync -avP /mnt/drive1/Photos/ /mnt/toshiba/photos/`
+- [ ] Change compose volume source from `/mnt/drive1/Photos` → `/mnt/toshiba/photos`
+- [ ] Start Immich, verify photos load
+- [ ] Remove `/mnt/drive1/Photos` after confirming
 - [ ] Set a floor alert — the existing Disk Guard workflow fires at >85%, which
       every drive except drive2/toshiba now exceeds permanently, so it has become
       background noise. Re-tune the threshold or make it per-drive.
 
-## 🔴 2. Hardlinking is still broken — and the waste has tripled
+## 🔴 2. mergerfs over NVMe drives (hardlinking fix)
 
-`docs/16-hardlinking-migration-plan.md` diagnosed this on 2026-06-01. The plan was
-written and verified, then deferred. **The problem has grown substantially since:**
+`docs/16-hardlinking-migration-plan.md` diagnosed this on 2026-06-01. The waste has
+tripled since (`torrents/complete`: 351 GB → 1.1 TB). Every import is still a full
+copy because hardlinks can't cross the four separate ext4 filesystems.
 
-| | 2026-06-01 | 2026-08-15 |
-|---|---|---|
-| `drive1/torrents/complete` | 351 GB | **1.1 TB** |
-| Hardlinked files in libraries | 0 | 2 |
+mergerfs `2.33.5` is already installed. Pool the **four NVMe drives only** — the
+Toshiba USB HDD stays outside (USB disconnect would degrade the pool).
 
-Every completed torrent is still being *copied* into the library instead of
-hardlinked, because downloads are pinned to drive1 while libraries live on
-drive2/3/4 — and hardlinks cannot cross filesystems. Sonarr and Radarr both have
-`copyUsingHardlinks: True` and silently fall back to copying.
+The mergerfs unified mount path should be chosen so that when RAID replaces the
+individual drives in ~2 years, the array mounts at the same path — zero app
+reconfiguration on transition.
 
-Live audit today confirms it is unchanged:
-
-```
-/mnt/drive2/shows: 0 hardlinked    /mnt/drive1/movies: 2 hardlinked
-/mnt/drive3/shows: 0 hardlinked    /mnt/drive3/movies: 0 hardlinked
-/mnt/drive4/shows: 0 hardlinked    /mnt/drive4/movies: 0 hardlinked
-```
-
-mergerfs `2.33.5` is already installed at `/usr/bin/mergerfs`. The migration plan
-is written and ready.
-
-- [ ] **Owner go/no-go required** — this touches every library path
 - [ ] Run during a low-use window; plan is in `docs/16`
-- [ ] ⚠️ Do not auto-run — deliberately gated on owner approval
+- [ ] Update `docs/16` to reflect: toshiba excluded from pool, RAID transition intent
+- [ ] Sonarr/Radarr/Lidarr root folders already include `/mnt/toshiba` — these
+      stay as-is alongside the new pooled mount
 
 ## 🟠 3. VPN alerting is transition-only, so a missed message = silent downtime
 
@@ -114,7 +97,7 @@ gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
 - [ ] Home Assistant: `vaca` voice satellite repeatedly disconnects/reconnects
 - [ ] Swap sitting at 4.6 GB of 7.8 GB used with 1.2 GB RAM free. Nothing is
       thrashing now, but worth watching on 16 GB
-- [ ] Delete leftover `/DATA/AppData/plexamp` (64 KB, inert since PlexAmp removal)
+- [ ] Delete leftover `/DATA/AppData/plexamp` (64 KB) and `/DATA/AppData/plex` (83 MB)
 
 ## 🟡 8. Automation backlog (n8n)
 
@@ -132,6 +115,9 @@ Framework already exists in the Todo Capture flow; these are incremental intents
 
 ## Recently closed
 
+- ✅ **2026-08-15** — Toshiba USB HDD wired as overflow storage — volume mounts + root
+  folders added to Sonarr, Radarr, Lidarr, Immich; dirs created with uid 1000
+- ✅ **2026-08-15** — Plex removed (unused; Jellyfin + Infuse is the only media stack)
 - ✅ **2026-08-15** — qBit VPN silent death (wedged NAT-PMP); recovered, documented
   in `docs/06` + `docs/14`
 - ✅ **2026-08-15** — PlexAmp removed (61,969 restarts, unused, empty claim token)

@@ -29,7 +29,7 @@ than anything else on this page (see §6).
 | `/mnt/drive2` | `nvme3n1p1` | 1.9 T | 77% | media library |
 | `/mnt/drive3` | `nvme1n1p1` | 1.9 T | **93%** ⚠️ | media library |
 | `/mnt/drive4` | `nvme2n1p1` | 1.9 T | 80% | media library |
-| `/mnt/toshiba` | `sda1` | 1.8 T | **3%** | USB HDD, mostly unused |
+| `/mnt/toshiba` | `sda1` | 1.8 T | **3%** | USB HDD — overflow storage + Immich photos (see §8) |
 
 `/DATA` is a second **bind mount of drive1**, not a union — CasaOS apps write there.
 Docker's data-root is `/mnt/drive1/docker` and containerd's store is
@@ -42,14 +42,13 @@ Docker's data-root is `/mnt/drive1/docker` and containerd's store is
 
 ## 2. Services
 
-**38 containers, all managed as CasaOS apps** (`/var/lib/casaos/apps/<name>/docker-compose.yml`).
+**36 containers, all managed as CasaOS apps** (`/var/lib/casaos/apps/<name>/docker-compose.yml`).
 House rule: *every* service goes in CasaOS, not bare compose.
 
 | Service | Port | Notes |
 |---|---|---|
 | **Media** | | |
-| Jellyfin | 8096 | primary; HW transcode via Mali-G610 |
-| Plex | host net | secondary |
+| Jellyfin | 8096 | primary; HW transcode via Mali-G610; client is Infuse on Apple TV |
 | Jellyseerr | 5055 | requests; HTTPS via NPM (see §6 split-DNS trap) |
 | Sonarr / Radarr / Lidarr | 8989 / 7878 / 8686 | |
 | Prowlarr | 9696 | indexers |
@@ -79,8 +78,9 @@ House rule: *every* service goes in CasaOS, not bare compose.
 | 2FAuth | 8000 | TOTP |
 | kord-lastfm | 8787 | scrobble bridge |
 
-**Removed 2026-08-15:** PlexAmp (crash-looped 61,969 times on an expired claim
-token, unused). `compose/plexamp.yml` kept for reference.
+**Removed 2026-08-15:** PlexAmp (crash-looped 61,969 times), Plex (unused —
+Jellyfin + Infuse is the only media stack). `compose/plexamp.yml` kept for
+reference.
 
 ## 3. Cron (root)
 
@@ -159,8 +159,12 @@ they fire before qBit's WebUI is listening — normal startup ordering. qBit has
 **Hardlinks cannot cross filesystems.** drive1–4 are four separate ext4 filesystems.
 Downloads are pinned to drive1 while libraries sit on drive2/3/4, so every import is
 a full **copy** — Sonarr/Radarr have `copyUsingHardlinks: True` and silently fall
-back. This is why drive1 is at 96%. Fix is a mergerfs union
-([`docs/16`](docs/16-hardlinking-migration-plan.md), written, **not executed**).
+back. This is why drive1 is at 96%. Fix is a mergerfs union over the **four NVMe
+drives only** (not toshiba — USB disconnect would degrade the pool).
+[`docs/16`](docs/16-hardlinking-migration-plan.md) has the plan; **not yet executed**.
+RAID is planned in ~2 years when storage is more affordable — mergerfs is the bridge,
+and the unified mount path (`/mnt/storage` or similar) will transfer directly to the
+RAID array with zero app reconfiguration.
 
 **Setting qBit share limits auto-removes imported torrents** when \*arr Completed
 Download Handling is on — it deletes your seeding data. Use `scripts/qbit-cleanup.py`
@@ -187,17 +191,24 @@ Push via the box's `gh` auth.
 **Every change:** update the repo → add a `journal/YYYY-MM-DD.md` entry → push.
 Every new service goes in **CasaOS**, then gets documented, then pushed.
 
-## 8. Where to start
+## 8. Where to start — storage migration
 
-Read [`TODO.md`](TODO.md). The top two items — drive1 at 96% and the unexecuted
-hardlinking migration — are the same problem, and it is the one thing on this box
-that is actively getting worse (`torrents/complete` went 351 GB → 1.1 TB between
-June and August). Everything else is stable.
+**The plan (decided 2026-08-15):**
 
-> 🚧 **In progress as of 2026-08-15 — storage is being addressed now.** The owner
-> has given the go-ahead to take on the drive1 / hardlinking problem in this
-> stretch, so treat items 1 and 2 in [`TODO.md`](TODO.md) as *active work*, not
-> backlog. If you are picking this up mid-flight, check the newest entry in
-> [`journal/`](journal/) before touching drive1, mount points, or any library
-> path — the mergerfs migration in [`docs/16`](docs/16-hardlinking-migration-plan.md)
-> moves library trees, so a stale mental model here is expensive.
+1. **Move Immich photos to toshiba** — rsync 166 GB from `/mnt/drive1/Photos` →
+   `/mnt/toshiba/photos`, swap the volume mount. Drops drive1 from ~97% to ~88%.
+   Immich DB paths are relative (mount target doesn't change), so no DB migration.
+2. **mergerfs over the four NVMe drives** — pools drive1–4 into a single mount.
+   Hardlinks work, imports stop doubling. Toshiba stays **outside** the pool (USB
+   disconnect risk). Plan in [`docs/16`](docs/16-hardlinking-migration-plan.md).
+3. **RAID in ~2 years** — when storage is more affordable, replace the individual
+   NVMe drives with a RAID array. Mount the array at the same path mergerfs used —
+   apps need zero reconfiguration.
+
+**Toshiba is already wired up.** Sonarr, Radarr, Lidarr have `/mnt/toshiba` root
+folders. Immich has a "Toshiba Photos" external library. Jellyfin sees it via
+`/mnt:/mnt`. CasaOS does not show it in its storage dashboard (USBAutoMount is
+disabled), but containers have full access via bind mounts.
+
+> 🚧 **In progress as of 2026-08-15.** Check the newest entry in
+> [`journal/`](journal/) before touching drive1, mount points, or any library path.
