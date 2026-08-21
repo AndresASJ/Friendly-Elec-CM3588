@@ -1,8 +1,28 @@
-# FriendlyElec CM5388 Homelab
+# CM3588 Homelab
 
-A complete, reproducible self-hosted stack running on a FriendlyElec CM5388 single-board computer. Everything is containerized and managed through **CasaOS** + **Docker Compose**.
+A complete, reproducible self-hosted stack on a single FriendlyElec CM3588 board — 20+ services, fully containerized, documented to rebuild from scratch.
 
-This repo is a living blueprint. It contains the exact (sanitized) compose files and configs running on the host, plus step-by-step docs so anyone can rebuild the same setup from scratch.
+## Background
+
+I wanted my photos and files on hardware I own, backed up where no unwanted eyes can reach them, instead of renting that trust from Google. I also wanted a playground: a standing excuse to learn Linux as a server, Docker networking, and everything in between. The usual fate of a setup like this is a pile of undocumented containers that nobody can rebuild after a disk dies, including future-you.
+
+## Approach
+
+I treated the homelab as a living blueprint. Every service is a sanitized Docker Compose file, every decision is written down, and the whole stack can be reproduced from a freshly flashed board. CasaOS sits on top for day-to-day management; twenty numbered guides carry the actual knowledge, from flashing the board and laying out storage to VPN routing and troubleshooting.
+
+## Results
+
+| Metric | Value |
+|--------|-------|
+| Self-hosted services | 20+ |
+| Hardware | 1 ARM board — 8-core, 16 GB |
+| Rebuild guides | 20 numbered docs |
+
+## Learnings
+
+The docs ended up mattering more than the containers. Writing each step down as I went, to the point a stranger could reproduce the stack, is why I trust this board with my actual photo library. It also keeps the whole thing a playground: I can try a new service, break it, and rebuild it without fear.
+
+---
 
 > **Running this box?** Start with **[HANDOFF.md](HANDOFF.md)** — current system
 > state, verification commands, and the traps worth not rediscovering.
