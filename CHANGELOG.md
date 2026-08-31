@@ -8,6 +8,20 @@ to the journal for the full narrative and to the relevant doc for how it works n
 
 ---
 
+## 2026-08-31
+
+### Added
+- **Jellyfin `Music` library** — Jellyfin previously had only `Movies` and `Shows`, so
+  the ~88 GB of Soulseek FLAC in `/mnt/drive1/Downloads/Soulseek` was not reachable from
+  any client. Added a third library pointed straight at that download directory, built by
+  hand as a virtual folder (`music.collection` + `music.mblink` + `options.xml`) to match
+  the existing two. Points at the raw download dir rather than the mergerfs pool by
+  choice — instant, no data moved, at the cost of ~140 un-imported slskd folders showing
+  as junk artists. Needs a **Scan Media Library** run to register.
+  ([journal](journal/2026-08-31.md) · [docs](docs/08-music.md))
+
+---
+
 ## 2026-08-15
 
 ### Fixed

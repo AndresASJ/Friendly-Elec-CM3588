@@ -10,6 +10,7 @@ The music side runs separately from Sonarr/Radarr. Music sourcing uses **slskd**
 | **Music Assistant** | Server that aggregates local + streaming music | — |
 | **PlexAmp** | ~~Plex-native music player~~ — **removed 2026-08-15, unused** | — |
 | **kord-lastfm** | Lightweight Last.fm scrobbling bridge | 8787 |
+| **Jellyfin** | Serves the music library (see below) | 8096 |
 
 ## Music Assistant
 
@@ -53,6 +54,33 @@ A small Node.js script that listens to webhook events from Plex/Jellyfin and for
 The server script is mounted from `/DATA/AppData/kord-lastfm/server.js`. Configure your Last.fm API key + session token via env vars (see the compose file).
 
 In Plex/Jellyfin, add a webhook pointing to `http://192.168.50.178:8787/scrobble`.
+
+## Jellyfin — Music library
+
+Jellyfin serves the Soulseek music directly out of the slskd download directory. The
+library is defined at `/DATA/AppData/jellyfin/config/data/root/default/Music/`:
+
+| File | Contents |
+|------|----------|
+| `music.collection` | empty marker file — sets the collection type to Music |
+| `music.mblink` | `/mnt/drive1/Downloads/Soulseek` |
+| `options.xml` | realtime monitor on, MusicBrainz for artist + album metadata |
+
+Files are owned `1000:devmon`, matching the `Movies`/`Shows` libraries beside them. No
+mount change was needed — the Jellyfin container bind-mounts `/mnt` → `/mnt`, so the
+path resolves inside the container unchanged.
+
+> **A new virtual folder only registers during a library scan.** Restarting Jellyfin is
+> not enough — the folder stays absent from the database until
+> **Dashboard → Scheduled Tasks → Scan Media Library** runs. If a library you just added
+> never shows up in the UI, that scan is almost always what is missing.
+
+> **The library points at the raw download dir, not the pool.** Lidarr's root folder *is*
+> `/mnt/drive1/Downloads/Soulseek`, so it manages music in place. Only a few artists are
+> renamed into clean `Artist/Album` folders; the rest are still raw slskd folder names and
+> will show in Jellyfin as junk artists/albums. Tidying this means creating
+> `/mnt/storage/media/music` in the pool, re-pointing Lidarr's root, and letting it move +
+> rename — which would also relieve `drive1`, currently at 98%.
 
 ## Library convention
 
