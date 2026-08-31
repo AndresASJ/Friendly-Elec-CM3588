@@ -113,6 +113,27 @@ See [docs/12-recyclarr.md](12-recyclarr.md). This is what makes Sonarr/Radarr ac
 
 On first launch, point it at Jellyfin (after Jellyfin is up). Connect Sonarr + Radarr as request handlers.
 
+> **Jellyseerr keeps its own copy of the root folder and quality profile.** It does
+> not read them from Sonarr/Radarr at request time — it stores them in
+> `settings.json` (`radarr[].activeDirectory`, `sonarr[].activeDirectory`,
+> `activeProfileId`) and snapshots them again per request in
+> `db/db.sqlite3` → `media_request.rootFolder` / `.profileId`.
+>
+> **If you ever change a root folder or quality profile in Sonarr/Radarr, you must
+> update Jellyseerr too**, in *both* places, or every request fails with HTTP 400
+> `RootFolderExistsValidator` / `QualityProfileExistsValidator` — and it fails
+> *silently*, since direct adds in Sonarr/Radarr keep working. This bit us for 17
+> days after the pool migration; see
+> [Troubleshooting → Jellyseerr requests never reach the download client](14-troubleshooting.md#jellyseerr-requests-never-reach-the-download-client)
+> and `journal/2026-08-31.md`.
+
+Current values (post-pool-migration):
+
+| | Root folder | Quality profile |
+|---|---|---|
+| Radarr | `/data/media/movies` | `4` — HD-1080p |
+| Sonarr | `/data/media/shows` | `7` — WEB-1080p |
+
 ### 7. Jellyfin
 
 [`compose/jellyfin.yml`](../compose/jellyfin.yml).

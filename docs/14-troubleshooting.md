@@ -180,6 +180,58 @@ group_add:
   - video
 ```
 
+## Jellyseerr requests never reach the download client
+
+**Symptom:** You request something in Jellyseerr, it shows as approved/processing,
+but it never appears in Sonarr/Radarr and nothing lands in qBittorrent. Adding the
+same title *directly* in Sonarr/Radarr works fine. Can persist for months unnoticed.
+
+**Cause:** Jellyseerr stores its own root folder + quality profile rather than
+reading them live from the *arr. If they drift (e.g. after the mergerfs pool
+migration re-pointed roots to `/data/media/...`), every add is rejected with HTTP 400.
+
+**Diagnose:**
+
+```bash
+docker logs jellyseerr --since 24h 2>&1 | grep -iE 'marking status as FAILED|RootFolderExists|QualityProfileExists'
+```
+
+Look for `Root folder '/mnt/...' does not exist` or `Quality Profile does not exist`.
+Then compare against what the *arr actually has:
+
+```bash
+curl -s -H "X-Api-Key: $RADARR_KEY" http://192.168.50.178:7878/api/v3/rootfolder
+curl -s -H "X-Api-Key: $RADARR_KEY" http://192.168.50.178:7878/api/v3/qualityprofile
+```
+
+**Fix — both places, or retries keep failing:**
+
+1. Server defaults, for new requests. Settings → Services in the UI, or edit
+   `/mnt/drive1/appdata/jellyseerr/settings.json` with the container **stopped**
+   (`activeDirectory`, `activeProfileId`, `activeProfileName`).
+2. Per-request snapshots, for anything already queued or failed:
+
+```bash
+docker stop jellyseerr
+DB=/mnt/drive1/appdata/jellyseerr/db/db.sqlite3
+cp -a "$DB" "$DB.bak-$(date +%Y%m%d-%H%M%S)"
+sqlite3 "$DB" "UPDATE media_request SET rootFolder='/data/media/movies' WHERE type='movie' AND rootFolder LIKE '/mnt/%';
+               UPDATE media_request SET rootFolder='/data/media/shows'  WHERE type='tv'    AND rootFolder LIKE '/mnt/%';"
+docker start jellyseerr
+```
+
+3. Retry the failures (`filter=failed` lists them; the key is `main.apiKey` in
+   `settings.json`):
+
+```bash
+curl -s -H "X-Api-Key: $JS_KEY" "http://192.168.50.178:5055/api/v1/request?take=100&filter=failed"
+curl -s -X POST -H "X-Api-Key: $JS_KEY" "http://192.168.50.178:5055/api/v1/request/<id>/retry"
+```
+
+**Worth checking periodically** — there is no alerting on this today. A non-zero
+`pageInfo.results` from the `filter=failed` call above means requests are being
+dropped on the floor.
+
 ## Anything else
 
 Check logs first — they almost always tell you what's wrong:

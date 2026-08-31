@@ -57,7 +57,28 @@ it fired once and then logged `status=DOWN prev=DOWN` every 5 minutes in silence
 - [ ] Consider the same treatment for `gluetun-slskd`, which has no healthcheck
       script at all and would fail exactly as silently.
 
-## 🟠 4. Backups don't cover n8n-postgres
+## 🟠 4. No alerting on failed Jellyseerr requests
+
+The same silent-failure shape as #3, different service. Jellyseerr requests were
+failing to reach Sonarr/Radarr for **17 days** (movies) and **~4 months** (TV) with
+no signal — found only because someone noticed a specific film wasn't downloading.
+See `journal/2026-08-31.md`.
+
+`MEDIA_FAILED` notifications do fire, but evidently to somewhere nobody reads. The
+cheap fix is a poll, since one call gives the whole answer:
+
+```
+GET /api/v1/request?take=100&filter=failed   → pageInfo.results
+```
+
+- [ ] n8n workflow: poll hourly, alert when `pageInfo.results > 0`, include titles
+- [ ] Check where Jellyseerr's existing `MEDIA_FAILED` notification agent points, and
+      either fix that destination or turn it off in favour of the poll
+- [ ] While there: a mismatch check comparing Jellyseerr's stored `activeDirectory` /
+      `activeProfileId` against the live `/api/v3/rootfolder` + `/api/v3/qualityprofile`
+      from each *arr would have caught this at the moment of the migration
+
+## 🟠 5. Backups don't cover n8n-postgres
 
 `scripts/backup.sh` dumps Immich's Postgres but **not** `n8n-postgres` — which holds
 every workflow, credential, and execution history, plus the `contacts` table.
@@ -67,7 +88,7 @@ Carried over from the May 31 handoff and still not done.
       block at lines 49-52)
 - [ ] Verify a restore actually works — an untested backup isn't a backup
 
-## 🟠 5. Secret hygiene
+## 🟠 6. Secret hygiene
 
 - [ ] `/mnt/drive1/AppData/gluetun-qbit/update-port.sh` has the qBit WebUI password
       in plaintext and is mode `0755`. Not in the repo (verified), so local exposure
@@ -76,7 +97,7 @@ Carried over from the May 31 handoff and still not done.
       contacts-sync setup. The app-specific password is what's actually used by
       `contacts-sync.py`, so rotating the main one is safe. **Status unverified.**
 
-## 🟡 6. Two redundant qBit port-push mechanisms
+## 🟡 7. Two redundant qBit port-push mechanisms
 
 Both work (verified 2026-08-15) but only one is needed. The `*/5` cron predates
 gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
@@ -86,7 +107,7 @@ gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
 - [ ] Its log `/mnt/drive1/AppData/gluetun-qbit/port-update.log` had grown to 2.5 MB
       of `No port file` lines on the 96%-full disk; rotate or remove
 
-## 🟡 7. Smaller service issues
+## 🟡 8. Smaller service issues
 
 - [ ] `slskd` sits at ~22% CPU steady-state — worth understanding whether that's
       normal share-scanning or a stuck loop
@@ -99,7 +120,7 @@ gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
       thrashing now, but worth watching on 16 GB
 - [ ] Delete leftover `/DATA/AppData/plexamp` (64 KB) and `/DATA/AppData/plex` (83 MB)
 
-## 🟡 8. Automation backlog (n8n)
+## 🟡 9. Automation backlog (n8n)
 
 Framework already exists in the Todo Capture flow; these are incremental intents.
 

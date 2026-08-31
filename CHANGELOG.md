@@ -10,6 +10,19 @@ to the journal for the full narrative and to the relevant doc for how it works n
 
 ## 2026-08-31
 
+### Fixed
+- **Jellyseerr was still sending pre-pool root folders — every request had been failing
+  silently.** The 2026-08-18 hardlinking migration re-pointed Sonarr/Radarr to
+  `/data/media/{shows,movies}`, but Jellyseerr kept its own stored copies
+  (`/mnt/drive3/movies`, `/mnt/drive2/shows`) and every add was rejected with HTTP 400
+  `RootFolderExistsValidator`. Sonarr also carried an older break — `activeProfileId: 4`
+  against a Sonarr that only has profile `7` — which had been dropping TV requests since
+  **2026-05-05**. Direct adds in Sonarr/Radarr kept working, which masked it. Fixed in
+  both places the value lives: `settings.json` for new requests, and the per-request
+  `media_request.rootFolder`/`.profileId` snapshots in `db.sqlite3` (68 stale rows) for
+  existing ones. Failed requests `9 → 0`.
+  ([journal](journal/2026-08-31.md) · [docs](docs/14-troubleshooting.md#jellyseerr-requests-never-reach-the-download-client))
+
 ### Added
 - **Jellyfin `Music` library** — Jellyfin previously had only `Movies` and `Shows`, so
   the ~88 GB of Soulseek FLAC in `/mnt/drive1/Downloads/Soulseek` was not reachable from
