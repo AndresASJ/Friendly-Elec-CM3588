@@ -241,6 +241,44 @@ on 08-12, then logged `status=DOWN prev=DOWN` every 5 min for three days in sile
 One missed Telegram message = unbounded downtime. Consider a re-alert every N
 consecutive DOWN checks, or auto-restart on sustained DOWN.
 
+## Routing private vs public trackers to the right qBit category
+
+There are two download clients registered in both Sonarr and Radarr — `qBittorrent -
+Private` (id 1) and `qBittorrent - Public` (id 2) — mapping to the qBit categories
+`*-private` and the plain ones. The split drives `qbit-cleanup.py`: public torrents are
+deleted as soon as they're imported, private ones seed until ratio ≥ 1.0 or 14 days.
+
+**The split only works if each indexer is pinned to a client.** Set `downloadClientId`
+on the *indexer*:
+
+| indexer | Prowlarr `privacy` | `downloadClientId` |
+|---|---|---|
+| seedpool, DigitalCore | private | `1` (qBittorrent - Private) |
+| 1337x, YTS | public | `2` (qBittorrent - Public) |
+
+> **Download-client *tags* do not do this.** In Sonarr/Radarr a client's tags match
+> against **series/movie** tags, not the indexer. With every indexer left at
+> `downloadClientId=0` ("any") and both clients at equal priority, the *arr simply
+> **round-robins** — so roughly half of all grabs land in the wrong category. That was
+> the state until 2026-09-01, when 20 of 53 live torrents were mislabelled in both
+> directions. See `journal/2026-09-01.md`.
+
+Audit it — Prowlarr's `privacy` field is the source of truth:
+
+```bash
+curl -s -H "X-Api-Key: $PROWLARR_KEY" http://192.168.50.178:9696/api/v1/indexer \
+  | python3 -c "import json,sys;[print(i['name'],i['privacy']) for i in json.load(sys.stdin)]"
+
+curl -s -H "X-Api-Key: $SONARR_KEY" http://192.168.50.178:8989/api/v3/indexer \
+  | python3 -c "import json,sys;[print(i['name'],i.get('downloadClientId')) for i in json.load(sys.stdin)]"
+```
+
+Prowlarr syncs these indexers at `syncLevel=fullSync`; `downloadClientId` **survives**
+a full sync (verified by forcing `ApplicationIndexerSync`), so it is safe to set here.
+
+To re-categorise torrents already in qBit, set the category from the tracker host. All
+four *arr categories have an empty `savePath`, so this moves nothing on disk.
+
 ## Private-tracker "download slot limit" (ratio standing)
 
 seedpool (and other UNIT3D trackers) cap how many torrents your account may **leech at

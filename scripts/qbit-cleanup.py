@@ -6,8 +6,12 @@
 #       seeded>=14d, AND verified imported  (keeps reward buffers until then)
 #   (c) dead 0% stalledDL torrents
 # Import = downloadId matches a "downloadFolderImported" event in Sonarr/Radarr
-# history -> the library holds its own copy (there are NO hardlinks), so deleting
-# the torrent's files is safe.
+# history -> the library has its own path for the file, so deleting the torrent's
+# copy is safe.
+# NOTE (2026-09-01): since the mergerfs migration the library path is usually a
+# HARDLINK to the same inode, not a separate copy. Deletion is still safe (removing
+# one link leaves the library's link intact), but the "reclaimable GB" figures below
+# are an OVER-estimate — freeing a hardlinked torrent returns ~0 bytes.
 #
 #   --report  (default) analyze only; write log + create a Todoist reminder task.
 #   --apply              actually remove eligible torrents WITH files.
@@ -18,7 +22,7 @@
 # qBit is reached via `docker exec qbittorrent curl 127.0.0.1:8090` (localhost auth
 # bypass inside the VPN namespace). Installed by Claude 2026-05-31. See docs/15-n8n.md
 # / docs/06-downloads-vpn.md.
-import json, subprocess, sys, re, urllib.request, urllib.error, xml.etree.ElementTree as ET
+import json, subprocess, sys, re, time, urllib.request, urllib.error, xml.etree.ElementTree as ET
 from datetime import datetime
 
 APPLY      = "--apply" in sys.argv
@@ -27,6 +31,9 @@ LAN        = "192.168.50.178"
 PRIV_CATS  = {"tv-sonarr-private", "radarr- Private"}
 PUB_CATS   = {"tv-sonarr", "radarr- Public"}
 RATIO_LIMIT = 1.0
+DEAD_MIN_AGE = 24 * 3600   # don't call a torrent "dead" until it has had a day
+                           # to find peers — with qBit queueing enabled a fresh
+                           # grab can sit at 0% stalledDL simply awaiting a slot
 SEED_LIMIT  = 14 * 86400          # seconds
 LOG        = "/var/log/qbit-cleanup.log"
 TODOIST_TOKEN_FILE = "/root/.config/flac-sync/todoist.token"
@@ -88,7 +95,10 @@ def classify(torrents, ids):
            and x.get("progress", 0) >= 1.0 and imp(x)]
     priv = [x for x in torrents if x.get("category", "") in PRIV_CATS and imp(x)
             and (x["ratio"] >= RATIO_LIMIT or x.get("seeding_time", 0) >= SEED_LIMIT)]
-    dead = [x for x in torrents if x["state"] == "stalledDL" and x.get("progress", 0) < 1.0]
+    now = time.time()
+    dead = [x for x in torrents if x["state"] == "stalledDL"
+            and x.get("progress", 0) < 1.0
+            and now - x.get("added_on", now) >= DEAD_MIN_AGE]
     return pub, priv, dead
 
 def todoist(content, desc):

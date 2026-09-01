@@ -232,6 +232,77 @@ curl -s -X POST -H "X-Api-Key: $JS_KEY" "http://192.168.50.178:5055/api/v1/reque
 `pageInfo.results` from the `filter=failed` call above means requests are being
 dropped on the floor.
 
+## Import fails with "Access to the path ... is denied" (mergerfs branch permissions)
+
+**Symptom:** A torrent completes, but the *arr queue shows `importBlocked` and the
+file never reaches the library or Jellyfin. Radarr/Sonarr logs show:
+
+```
+System.UnauthorizedAccessException: Access to the path '/data/media/movies/<Title>' is denied.
+```
+
+**Cause:** the pool uses `category.create=mfs`, so **new folders are created on
+whichever branch has the most free space**. If that branch's `data/media/{movies,shows}`
+is root-owned `755`, the *arr (uid 1000) cannot create the title folder there — even
+though every other branch is fine. The failure follows free space, so it appears
+out of nowhere when a different drive becomes the emptiest.
+
+> `docker exec radarr id` reports **root** and is misleading — that's the exec shell,
+> not the app. Check the process: `docker exec radarr ps -o user,uid -C Radarr`
+> (LinuxServer images run as `PUID`, here 1000).
+
+**Diagnose — compare every branch, not just the pool view:**
+
+```bash
+for d in /mnt/drive1 /mnt/drive2 /mnt/drive3 /mnt/drive4 /mnt/toshiba; do
+  printf '%-14s ' "$d"; ls -ld $d/data/media/movies 2>&1
+done
+df -h /mnt/drive1 /mnt/drive2 /mnt/drive3 /mnt/drive4 /mnt/toshiba   # which is emptiest?
+```
+
+The pool path `/mnt/storage/media/movies` can look correct while a branch underneath
+is wrong — mergerfs shows you the first branch it finds.
+
+**Fix — bring the odd branch in line (`<branch>` = the offender):**
+
+```bash
+chown root:1002  <branch>/data <branch>/data/media
+chmod 2755       <branch>/data <branch>/data/media
+chown 1001:1002  <branch>/data/media/movies <branch>/data/media/shows
+chmod 2777       <branch>/data/media/movies <branch>/data/media/shows
+```
+
+Then confirm as the app's uid and re-trigger the import:
+
+```bash
+setpriv --reuid=1000 --regid=1000 --clear-groups mkdir "/mnt/storage/media/movies/.wtest"
+rmdir "/mnt/storage/media/movies/.wtest"
+curl -s -X POST -H "X-Api-Key: $RADARR_KEY" -H 'Content-Type: application/json' \
+  -d '{"name":"RefreshMonitoredDownloads"}' http://192.168.50.178:7878/api/v3/command
+```
+
+Worth re-checking after adding any new branch to the pool. See `journal/2026-09-01.md`.
+
+## Downloads all crawl / torrent priority does nothing
+
+**Symptom:** dozens of torrents each moving at a trickle; setting a torrent to top
+priority changes nothing.
+
+**Cause:** qBittorrent queueing disabled — `max_active_downloads` is then inert and
+every torrent runs at once, splitting the line N ways. Priority only orders a queue,
+so with no queue it has no effect.
+
+**Fix:**
+
+```bash
+docker exec qbittorrent curl -s -X POST 'http://127.0.0.1:8090/api/v2/app/setPreferences' \
+  --data-urlencode 'json={"queueing_enabled":true,"max_active_downloads":4,"max_active_uploads":-1,"max_active_torrents":-1,"dont_count_slow_torrents":true}'
+```
+
+**Keep `max_active_uploads` and `max_active_torrents` at `-1`.** Queueing counts
+*seeding* torrents toward those caps, so a finite value pauses seeders to make room
+for downloads — quietly wrecking private-tracker ratio. Only downloads should be capped.
+
 ## Anything else
 
 Check logs first — they almost always tell you what's wrong:

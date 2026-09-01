@@ -77,6 +77,11 @@ GET /api/v1/request?take=100&filter=failed   → pageInfo.results
 - [ ] While there: a mismatch check comparing Jellyseerr's stored `activeDirectory` /
       `activeProfileId` against the live `/api/v3/rootfolder` + `/api/v3/qualityprofile`
       from each *arr would have caught this at the moment of the migration
+- [ ] Same shape, found 2026-09-01: alert on *arr queue items stuck in `importBlocked`.
+      Hamilton sat there silently after a permissions fault on a pool branch
+- [ ] Cheap companion check: for each mergerfs branch, verify `data/media/{movies,shows}`
+      is writable **as uid 1000**. The branch that breaks is whichever is emptiest, so
+      this fault surfaces on its own schedule (see `journal/2026-09-01.md`)
 
 ## 🟠 5. Backups don't cover n8n-postgres
 
@@ -107,7 +112,19 @@ gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
 - [ ] Its log `/mnt/drive1/AppData/gluetun-qbit/port-update.log` had grown to 2.5 MB
       of `No port file` lines on the 96%-full disk; rotate or remove
 
-## 🟡 8. Smaller service issues
+## 🟡 8. Quality profiles ignore swarm health
+
+Radarr grabbed a 44 GB `Remux-1080p` of Hamilton with **3 seeders** (ETA 35 days) over a
+13 GB Bluray-1080p with **127 seeders**, because the profile scores remux highest and
+nothing weighs seeder count. Every better release was then rejected with "Quality for
+release in queue already meets cutoff" — rejected *because* the dead remux held the slot.
+
+- [ ] Add a minimum-seeders threshold on the public indexers (Prowlarr indexer setting),
+      and/or a negative custom format for remux where the swarm is thin
+- [ ] Consider whether `Remux-1080p` belongs in `HD-1080p` at all, given the disk cost
+- [ ] Watch for the same trap on any title where the remux is the dead swarm
+
+## 🟡 9. Smaller service issues
 
 - [ ] `slskd` sits at ~22% CPU steady-state — worth understanding whether that's
       normal share-scanning or a stuck loop
@@ -120,7 +137,7 @@ gluetun's native `VPN_PORT_FORWARDING_UP_COMMAND` hook.
       thrashing now, but worth watching on 16 GB
 - [ ] Delete leftover `/DATA/AppData/plexamp` (64 KB) and `/DATA/AppData/plex` (83 MB)
 
-## 🟡 9. Automation backlog (n8n)
+## 🟡 10. Automation backlog (n8n)
 
 Framework already exists in the Todo Capture flow; these are incremental intents.
 

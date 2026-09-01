@@ -8,6 +8,36 @@ to the journal for the full narrative and to the relevant doc for how it works n
 
 ---
 
+## 2026-09-01
+
+### Fixed
+- **Imports were failing with `UnauthorizedAccessException` — one mergerfs branch had
+  root-owned media dirs.** `/mnt/toshiba/data/media/{movies,shows}` was `root:root 755`
+  while every other branch was `1001:1002 2777`. Because the pool creates new folders on
+  the most-free branch (`category.create=mfs`) and toshiba is now the emptiest, *every*
+  new library folder was landing there and the *arr (uid 1000) couldn't create it. Not
+  title-specific — it would have blocked all imports, TV included.
+  ([journal](journal/2026-09-01.md) · [docs](docs/14-troubleshooting.md#import-fails-with-access-to-the-path--is-denied-mergerfs-branch-permissions))
+- **Private/Public download-client routing was never wired up.** Both clients sat at
+  equal priority with no tags and every indexer at `downloadClientId=0`, so Sonarr/Radarr
+  round-robined between them — 20 of 53 live torrents were in the wrong category, in both
+  directions (private-tracker torrents queued for immediate deletion, public torrents
+  seeding for 14 days against policy). Pinned each indexer to its client using Prowlarr's
+  `privacy` field; verified the setting survives a Prowlarr `fullSync`.
+  ([docs](docs/06-downloads-vpn.md#routing-private-vs-public-trackers-to-the-right-qbit-category))
+- **qBittorrent queueing was disabled**, so all 53 torrents ran concurrently and torrent
+  priority did nothing. Enabled with `max_active_downloads=4`, and deliberately left
+  `max_active_uploads`/`max_active_torrents` at `-1` so seeding is never throttled.
+
+### Changed
+- **`qbit-cleanup.py` back on a daily schedule** (04:30) — it had not run since
+  2026-06-14, having removed its own crontab line via `--from-cron`. Added a 24 h age
+  guard so queued-but-not-yet-started torrents aren't classed as dead (a dry run flagged
+  four live grabs), and corrected the header's now-false "there are NO hardlinks" claim.
+  ([docs](docs/13-backups-and-maintenance.md#automated-qbit-cleanup))
+
+---
+
 ## 2026-08-31
 
 ### Fixed

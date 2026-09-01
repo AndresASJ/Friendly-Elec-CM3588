@@ -129,6 +129,41 @@ docker compose -f /var/lib/casaos/apps/immich/docker-compose.yml up -d
 - Review NPM SSL certs — Let's Encrypt should auto-renew, but check the expiry dates
 - Audit running containers — anything unused? Remove it.
 
+## Automated qBit cleanup
+
+```cron
+30 4 * * * /usr/bin/python3 /usr/local/bin/qbit-cleanup.py --apply >> /var/log/qbit-cleanup.log 2>&1
+```
+
+Policy, all requiring a verified `downloadFolderImported` event in Sonarr/Radarr history:
+
+| class | categories | removed when |
+|---|---|---|
+| public | `tv-sonarr`, `radarr- Public` | complete + imported (never seeded) |
+| private | `tv-sonarr-private`, `radarr- Private` | ratio ≥ 1.0 **or** seeded ≥ 14 days |
+| dead | any | `stalledDL` under 100% **and older than 24 h** |
+
+Correct categorisation is what makes this safe — see
+[Routing private vs public trackers](06-downloads-vpn.md#routing-private-vs-public-trackers-to-the-right-qbit-category).
+A private-tracker torrent sitting in a public category gets deleted the moment it
+imports, losing all seed time.
+
+Run `--report` (no `--apply`) for a dry run; it writes the log and files a Todoist
+reminder instead of deleting.
+
+> **Never schedule it with `--from-cron`** — that flag makes the script delete its own
+> crontab line after a successful run. It's for one-shot reminders only, and it is why
+> the job silently stopped running between 2026-06-14 and 2026-09-01.
+
+> The **24 h age guard** on dead torrents matters now that qBit queueing is enabled: a
+> freshly grabbed torrent legitimately sits at 0% `stalledDL` while waiting for a slot,
+> and without the guard the next run deletes it. Added 2026-09-01 after a dry run
+> flagged four live grabs.
+
+> Reported *reclaimable GB* is an **over-estimate**. Since the pool migration the
+> library path is normally a hardlink to the same inode, so deleting the torrent's copy
+> frees ~0 bytes. Deletion remains safe — the library's link keeps the data alive.
+
 ## Logs and disk usage
 
 Container logs can grow huge. Limit them in `/etc/docker/daemon.json`:
