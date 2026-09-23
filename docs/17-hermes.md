@@ -2,7 +2,8 @@
 
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) (Nous Research) — a
 self-hosted autonomous AI agent with persistent memory, auto-generated skills, and a
-messaging gateway. Reached over **Telegram**; brain is **Google Gemini 3.5 Flash**.
+messaging gateway. Reached over **Telegram**; brain is **Google Gemini** (free tier —
+`gemini-2.5-flash` primary + a per-model fallback chain, see below).
 Installed 2026-06-02 (see [`journal/2026-06-02.md`](../journal/2026-06-02.md)).
 
 ## Stack
@@ -68,27 +69,48 @@ Set it to Gemini:
 
 ```yaml
 model:
-  default: "gemini-3.5-flash"
+  default: "gemini-2.5-flash"
   provider: "gemini"          # Google AI Studio direct, uses GEMINI_API_KEY
   # base_url:                  # leave to the gemini provider's own endpoint
 ```
 
 Then restart (see caveats below — use down/up, not `restart`).
 
-### Auto-fallback when a model hits its quota (2026-06-03)
+### Auto-fallback chain — stretching the free tier (2026-06-03, reworked 2026-09-23)
 
-`gemini-3.5-flash`'s free tier is only **~20 requests/day**. Hermes' `fallback_model`
-(top-level, a chain) auto-rolls to the next model on a 429/529/503 — and each Gemini model
-has its **own** free-tier daily bucket, so replies keep flowing:
+Hermes' `fallback_model` (top-level, a chain) rolls to the next model on 429 (immediately)
+or 503/529 (after 3 retries). Google's free quotas are **per project *per model***, so every
+model in the chain adds its own bucket. Measured on this key 2026-09-23 (from the 429 bodies):
+
+| Model | RPM | RPD | Notes |
+|---|---|---|---|
+| `gemini-2.5-flash` / `3.5-flash` / `3.6-flash` / `3.7` / `3.8` | 5 | **20** | 3.7/3.8 (and often 3.x) 503 "high demand" for free tier |
+| `gemini-3.5-flash-lite` / `3.1-flash-lite` | 15 | ? | 3.5-lite ~20–45 s/call under load |
+| `gemini-2.5-flash-lite` | ? | ? | fastest (~1 s), weakest at tool use |
+| `gemma-4-31b-it` / `gemma-4-26b-a4b-it` | 30 | — | **unusable: 16k input tokens/min**, one Hermes call is ~18–25k |
+
+One Telegram message = **5–13 calls** of ~18–25k tokens each, so a 20/day flash bucket is
+~2–3 messages. The chain puts the fast/reliable model first (a slow 3.x primary doesn't
+fail over — it just hangs 60–160 s per call), then the other flash buckets, then lites:
 
 ```yaml
 model:
-  default: gemini-3.5-flash   # best, ~20/day free
+  default: gemini-2.5-flash       # fast (1–4 s) and reliable on free tier
   provider: gemini
 fallback_model:
-  - { provider: gemini, model: gemini-2.5-flash }       # ~250/day free
-  - { provider: gemini, model: gemini-2.5-flash-lite }  # ~1000/day free
+  - { provider: gemini, model: gemini-3.5-flash }
+  - { provider: gemini, model: gemini-3.6-flash }
+  - { provider: gemini, model: gemini-2.5-flash-lite }
+  - { provider: gemini, model: gemini-3.5-flash-lite }
+  - { provider: gemini, model: gemini-3.1-flash-lite }
 ```
+
+Daily quotas reset at midnight Pacific (07:00/08:00 UTC). Hermes restarts each turn on the
+primary, so an exhausted primary just costs one fast 429 before failing over.
+
+**Probe a model's free limits** (look at `quotaId` + `limit:` in a 429 body) — the docs
+page doesn't list them; only AI Studio's UI does. A burst of tiny requests against one model
+reveals RPM; RPD shows up as `GenerateRequestsPerDayPerProjectPerModel-FreeTier`.
 
 > Note: `config.yaml` must be **readable by the runtime user** (uid 10000). If Hermes logs
 > *"Permission denied … Falling back to default config — every override IGNORED"*, it's
@@ -263,10 +285,25 @@ The old n8n `things-import` webhook silently dropped due dates — superseded by
   A bare `docker restart` can trigger (2); prefer `down && up -d`.
 - **`/start` is a registration ping, not a prompt** — Hermes logs
   `Ignoring /start platform ping` and does not reply. Send a real message to test.
-- **Gemini free-tier = 5 requests/minute** for `gemini-3.5-flash`. The agent fans out
-  multiple calls per message (main + vision detect + title generation), so auxiliary
-  calls 429 (`limit: 5`) even though the main reply succeeds. Enable billing on the
-  Google Cloud project, or trim auxiliary features, for heavier use.
+- **Gemini free tier = 5 RPM *and 20 RPD* per flash model.** The agent fans out 5–13
+  calls per message, so one model's day is gone in 2–3 messages; when every bucket in the
+  chain is spent the agent degrades to lite models that botch tool calls. Owner decision
+  (2026-09-23): stay free — hence the long fallback chain above. Billing (or a second free
+  provider such as Mistral's Experiment tier via the `custom` OpenAI-compatible provider) is
+  the only real capacity increase.
+- **Masked secrets → silent 401 → "not found".** Tool output redacts secrets
+  (`ab12cd...wxyz`). If the agent `cat`s `/opt/data/.env` and pastes the key into `curl`, the
+  *arr returns 401 and `curl -s` prints nothing — the agent then reports "South Park isn't in
+  Sonarr". All keys are already exported into the agent's shell (`$SONARR_API_KEY`,
+  `$RADARR_API_KEY`, `$LIDARR_API_KEY`, `$N8N_API_KEY`, `$TODOIST_API_TOKEN`); USER.md now opens
+  with an "API keys — ALWAYS use the shell env vars" section (2026-09-23).
+- **USER.md trips the `exfil_curl` threat scanner → whole playbook dropped.** Any line with
+  `curl … $…KEY/TOKEN/API…` on it (regex in `tools/threat_patterns.py`) makes Hermes log
+  `Memory entry from USER.md blocked at load time: exfil_curl` and load the session with **no**
+  USER.md at all. Never put a curl example with a secret var on one line. Check after editing:
+  `docker exec hermes sh -c 'cd /opt/hermes && .venv/bin/python -c "from tools.threat_patterns
+  import scan_for_threats as s; print(s(open(\"/opt/data/memories/USER.md\").read(),\"strict\"))"'`
+  → must print `[]`.
 
 ## Verify
 
