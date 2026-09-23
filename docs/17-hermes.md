@@ -2,8 +2,8 @@
 
 [Hermes Agent](https://github.com/NousResearch/hermes-agent) (Nous Research) — a
 self-hosted autonomous AI agent with persistent memory, auto-generated skills, and a
-messaging gateway. Reached over **Telegram**; brain is **Google Gemini** (free tier —
-`gemini-2.5-flash` primary + a per-model fallback chain, see below).
+messaging gateway. Reached over **Telegram**; brain is **Mistral `ministral-14b-latest`** (free
+plan) with a **Google Gemini** free-tier fallback chain — both $0, see below.
 Installed 2026-06-02 (see [`journal/2026-06-02.md`](../journal/2026-06-02.md)).
 
 ## Stack
@@ -76,7 +76,50 @@ model:
 
 Then restart (see caveats below — use down/up, not `restart`).
 
-### Auto-fallback chain — stretching the free tier (2026-06-03, reworked 2026-09-23)
+### Primary: Mistral free plan (2026-09-23)
+
+Owner rule: Hermes must stay **100% free**. Gemini's free tier (below) only covers ~10–15
+messages/day, so a Mistral free-plan key is the primary. Key lives in `/opt/data/.env` as
+`MISTRAL_API_KEY` (Hermes strips that var from the agent's shell); a root copy is at
+`/root/.config/mistral.key` (600).
+
+```yaml
+model:
+  default: ministral-14b-latest
+  provider: custom:mistral
+providers:
+  mistral:
+    base_url: https://api.mistral.ai/v1
+    key_env: MISTRAL_API_KEY
+    api_mode: chat_completions
+fallback_model:            # Mistral first, then Gemini buckets
+  - { provider: custom, model: ministral-8b-latest, base_url: https://api.mistral.ai/v1, key_env: MISTRAL_API_KEY }
+  - { provider: custom, model: codestral-latest,    base_url: https://api.mistral.ai/v1, key_env: MISTRAL_API_KEY }
+  - { provider: gemini, model: gemini-2.5-flash }
+  - { provider: gemini, model: gemini-3.5-flash }
+  - { provider: gemini, model: gemini-3.6-flash }
+  - { provider: gemini, model: gemini-2.5-flash-lite }
+```
+
+Free-plan limits on this key (from `x-ratelimit-*` response headers, 2026-09-23):
+
+| Model | RPM | TPM | Hermes verdict |
+|---|---|---|---|
+| `ministral-14b-latest` | 30 | 937k | **primary** — 1–5 s/call, correct tool calls; occasionally misreads results |
+| `ministral-8b-latest` / `open-mistral-nemo` | 188 | 625k | ok fallback |
+| `codestral-latest` | 125 | 625k | poor as an agent (answered an unrelated title) |
+| `ministral-3b-latest` | 750 | 1.3M | too small |
+| `mistral-medium` / `small` / `magistral` / `devstral` | **0** | — | locked on this account's free mode |
+| `mistral-large-latest` | 403 | — | "not available in your subscription tier" |
+
+**Why Mistral must be first, not a fallback after Gemini:** Gemini returns thinking text,
+and Hermes echoes it back on replay as `reasoning_content`. Mistral is strict and 422s
+(`extra_forbidden … reasoning_content`) on any history that contains a Gemini turn — so a
+Gemini→Mistral hand-off mid-session always fails. Mistral→Gemini is fine. Can't fix it by
+setting `agent.reasoning_effort: none` (hides Gemini thoughts) either: for `custom`
+providers Hermes then adds Ollama's `think: false` to the body, which Mistral also 422s.
+
+### Auto-fallback chain — stretching the Gemini free tier (2026-06-03, reworked 2026-09-23)
 
 Hermes' `fallback_model` (top-level, a chain) rolls to the next model on 429 (immediately)
 or 503/529 (after 3 retries). Google's free quotas are **per project *per model***, so every
@@ -93,9 +136,12 @@ One Telegram message = **5–13 calls** of ~18–25k tokens each, so a 20/day fl
 ~2–3 messages. The chain puts the fast/reliable model first (a slow 3.x primary doesn't
 fail over — it just hangs 60–160 s per call), then the other flash buckets, then lites:
 
+Gemini-only chain used before Mistral was added (still the right shape if the Mistral key
+is ever removed — 2.5-flash first because slow 3.x primaries hang rather than fail over):
+
 ```yaml
 model:
-  default: gemini-2.5-flash       # fast (1–4 s) and reliable on free tier
+  default: gemini-2.5-flash
   provider: gemini
 fallback_model:
   - { provider: gemini, model: gemini-3.5-flash }
@@ -304,6 +350,13 @@ The old n8n `things-import` webhook silently dropped due dates — superseded by
   `docker exec hermes sh -c 'cd /opt/hermes && .venv/bin/python -c "from tools.threat_patterns
   import scan_for_threats as s; print(s(open(\"/opt/data/memories/USER.md\").read(),\"strict\"))"'`
   → must print `[]`.
+- **`python3 -c` / heredocs in the terminal need owner approval** (`tools/approval.py`:
+  "script execution via -e/-c flag"). On Telegram the owner gets an approve prompt; in a
+  `hermes chat -q` test nobody answers and it's denied after 60 s. `jq` isn't installed, so
+  USER.md points JSON filtering at the `execute_code` tool instead.
+- **Testing Hermes spends the owner's quota.** `hermes chat -Q -t hermes-telegram -q "…"`
+  (as `-u hermes`, `HERMES_HOME=/opt/data`) is a faithful end-to-end test, but each run costs
+  5–13 model calls — fine on Mistral, painful on Gemini's 20/day buckets.
 
 ## Verify
 
